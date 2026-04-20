@@ -7,3 +7,8 @@ release/
 .DS_Store
 Thumbs.db
 .claude/
+
+# Internal working notes — kept local, not part of the public repo
+ROADMAP.md
+VALIDATION.md
+.env
