@@ -38,3 +38,4 @@ jobs:
             dist/latest.yml
             dist/builder-effective-config.yaml
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

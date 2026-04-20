@@ -1,6 +1,6 @@
 {
   "name": "deepseek-desktop-wrapper",
-  "version": "0.5.0",
+  "version": "0.6.0-alpha.1",
   "description": "Hybrid DeepSeek desktop workspace with official wrapper and API mode.",
   "author": "Kinowill",
   "main": "src/main.js",

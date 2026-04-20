@@ -1,5 +1,42 @@
 # Journal de validation
 
+## 2026-04-20 - Pre-release v0.6.0-alpha.1 (Phase 1 UI, runtime non valide)
+
+Contexte : utilisateur veut que les artifacts GitHub restent alignes
+avec la branche `main`, meme si la Phase 1 n'a pas ete testee en runtime.
+
+Actions effectuees :
+- `package.json` : version `0.5.0` -> `0.6.0-alpha.1`.
+- `CHANGELOG.md` : ajout section `0.6.0-alpha.1` avec disclaimer
+  "PRE-RELEASE (NOT runtime validated)" en tete.
+- `README.md` : encart d'avertissement en tete sur le statut alpha.
+- `.github/workflows/release.yml` : ajout
+  `prerelease: ${{ contains(github.ref_name, '-') }}` pour que les tags
+  contenant `-` soient marques pre-release sur GitHub
+  (auto-update electron-updater stable n'y touchera pas).
+- Tag git `v0.6.0-alpha.1` cree et pousse.
+
+Mecanique de release : la GitHub Action `release.yml` declenche sur push
+de tag `v*`, build l'installeur Windows NSIS via `npm run dist`, puis
+upload `.exe` + `.blockmap` + `latest.yml` dans la release. Les tags
+en `-alpha.x` sont automatiquement marques pre-release.
+
+Etat explicite :
+- Repo modifie : oui, commit "chore(release): prep v0.6.0-alpha.1" pousse,
+  tag `v0.6.0-alpha.1` pousse.
+- Prod alignee : la GitHub Action build et publie automatiquement.
+  Statut precis a verifier dans l'onglet Actions du repo GitHub.
+- Validation reelle effectuee : **toujours aucune**. Le `.exe` produit
+  contient le code de Phase 1 mais aucun lancement runtime n'a ete fait.
+  Disclaimer publie dans la release et le README.
+
+Reste a verifier :
+- Status final du run GitHub Action (succes / echec build).
+- Telechargement et lancement de l'installeur alpha sur une machine de test.
+- Comportement runtime de la refonte UI.
+- Aucune regression sur les fonctions existantes (wrapper / API / fermeture).
+
+
 ## 2026-04-20 - Refonte UX/UI Phase 1 (Tailwind + Lucide + typo)
 
 Contexte : chantier UX/UI premium decide en debut de session,

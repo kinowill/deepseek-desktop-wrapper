@@ -2,8 +2,12 @@
 
 ## Etat courant
 
-Version courante : v0.5.0 (hybride wrapper officiel + mode API).
+Version stable : **v0.5.0** (hybride wrapper officiel + mode API).
+Pre-release publiee : **v0.6.0-alpha.1** (Phase 1 UX/UI, NON validee runtime).
 Chantier en cours : **refonte UX/UI premium** (Tailwind + Lucide + typo premium).
+
+L'auto-update reste sur le canal stable (v0.5.x). Les utilisateurs ne
+recoivent pas la pre-release sauf installation manuelle.
 
 ## Chantier UX/UI premium
 
