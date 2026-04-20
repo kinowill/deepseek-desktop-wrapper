@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 - 2026-04-20
+## 0.4.4 - 2026-04-20
 
 - removed the web wrapper and switched to an API-only desktop architecture
 - added collapsible sidebar and tabbed conversations
