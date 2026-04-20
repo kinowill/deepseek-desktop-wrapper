@@ -1,5 +1,17 @@
 # Journal de validation
 
+## 2026-04-20 - Correction documentaire : pas de version "stable"
+
+Erreur signalee par l'utilisateur : j'avais qualifie la v0.5.0 de "stable"
+dans `README.md` et `ROADMAP.md`, ce qui est faux. Aucune version de l'app
+n'a ete validee en runtime a ce jour (cf. entrees ci-dessous).
+
+Correction : `README.md` et `ROADMAP.md` reformules en "derniere version
+publiee" + mention explicite "no version formally runtime-validated yet".
+
+Lecon : ne pas inventer un statut de qualite (stable, valide, teste...)
+sans appui dans le journal de validation.
+
 ## 2026-04-20 - Pre-release v0.6.0-alpha.1 (Phase 1 UI, runtime non valide)
 
 Contexte : utilisateur veut que les artifacts GitHub restent alignes
