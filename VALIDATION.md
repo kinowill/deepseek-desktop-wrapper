@@ -27,13 +27,13 @@ Commandes executees :
 - `npm run lint:security` -> ok (`node --check` sur main.js / preload.js / renderer.js).
 
 Etat explicite :
-- Repo modifie : oui. Fichiers nouveaux : `tailwind.config.js`, `src/input.css`,
-  `src/icons.js`, `src/assets/fonts/*.woff2`. Fichiers modifies : `package.json`,
-  `package-lock.json`, `src/index.html`, `src/styles.css` (genere).
-- Prod alignee : non.
+- Repo modifie : commits crees et pousses sur `origin/main`.
+  - `471c243 chore(docs): add roadmap + validation journals and ignore .claude`
+  - `988b8b8 feat(ui): bootstrap premium UX/UI refonte (Phase 1)`
+- Prod alignee : non. Aucun build d'installeur n'a ete refait depuis.
 - Validation reelle effectuee : aucune. Aucun lancement runtime de l'application.
   Le rendu visuel n'a pas ete observe. Comportement de `renderer.js` avec le
-  nouveau markup non verifie.
+  nouveau markup non verifie. **A faire en priorite a la prochaine session.**
 
 Reste a verifier (avant Phase 2) :
 - `npm start` se lance sans erreur console.
