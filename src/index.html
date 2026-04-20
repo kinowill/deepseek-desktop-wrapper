@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.deepseek.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none';" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepSeek Desktop</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-theme="midnight">
+    <div class="window-frame">
+      <header class="titlebar drag-region">
+        <div class="titlebar-left no-drag">
+          <button class="icon-btn" id="sidebarToggleBtn" title="Toggle sidebar">☰</button>
+          <div class="brand-pill">
+            <div class="brand-mark">DS</div>
+            <div>
+              <strong>DeepSeek Desktop</strong>
+              <span>API-first workspace</span>
+            </div>
+          </div>
+          <div class="status-cluster">
+            <span class="pill" id="onlinePill">Online</span>
+            <span class="pill" id="updatePill">Idle</span>
+          </div>
+        </div>
+        <div class="titlebar-right no-drag">
+          <button class="titlebar-btn" id="minimizeBtn" aria-label="Minimize">-</button>
+          <button class="titlebar-btn" id="maximizeBtn" aria-label="Maximize">▢</button>
+          <button class="titlebar-btn close" id="closeBtn" aria-label="Close">✕</button>
+        </div>
+      </header>
+
+      <div class="app-shell" id="appShell">
+        <aside class="sidebar glass" id="sidebar">
+          <div class="sidebar-head">
+            <button class="primary wide" id="newChatBtn">New chat</button>
+            <input type="search" id="chatSearch" placeholder="Search conversations" />
+          </div>
+
+          <div class="sidebar-section">
+            <div class="section-row">
+              <span class="section-title">Conversations</span>
+              <span class="shortcut-hint">Ctrl+K</span>
+            </div>
+            <div class="conversation-list" id="conversationList"></div>
+          </div>
+
+          <div class="sidebar-section sidebar-footer">
+            <div class="section-row">
+              <span class="section-title">Quick actions</span>
+            </div>
+            <button class="ghost wide" id="exportAllBtn">Export all chats</button>
+            <button class="ghost wide" id="importChatsBtn">Import chats</button>
+            <button class="ghost wide" id="checkUpdatesBtn">Check updates</button>
+            <button class="ghost wide" id="openLogsBtn">Open logs folder</button>
+          </div>
+        </aside>
+
+        <main class="workspace">
+          <div class="tabs-bar glass" id="tabsBar"></div>
+
+          <div class="banner-row">
+            <div class="banner hidden" id="offlineBanner">Offline mode. Conversations remain available locally. Failed sends stay pending until retry.</div>
+            <div class="banner hidden" id="toastBanner"></div>
+          </div>
+
+          <div class="workspace-grid">
+            <section class="chat-stage glass">
+              <div class="chat-toolbar">
+                <div>
+                  <div class="eyebrow">Conversation</div>
+                  <input class="chat-title-input" id="chatTitleInput" type="text" placeholder="Conversation title" />
+                </div>
+                <div class="chat-toolbar-actions">
+                  <select id="activeProfileSelect"></select>
+                  <select id="chatModelSelect"></select>
+                  <button class="ghost" id="refreshModelsBtn">Refresh models</button>
+                  <button class="ghost" id="exportCurrentBtn">Export current</button>
+                </div>
+              </div>
+
+              <div class="message-list" id="messageList"></div>
+
+              <div class="composer-panel">
+                <div class="attachment-strip" id="attachmentStrip"></div>
+                <textarea id="composer" rows="5" placeholder="Write a message. Ctrl+Enter to send."></textarea>
+                <div class="composer-bottom">
+                  <div class="composer-left">
+                    <button class="ghost" id="attachBtn">Attach files</button>
+                    <button class="ghost" id="starterBtn">Starter prompt</button>
+                    <span class="tiny-muted" id="draftInfo">Draft saved locally</span>
+                  </div>
+                  <div class="composer-right">
+                    <button class="ghost" id="saveChatBtn">Save now</button>
+                    <button class="primary" id="sendBtn">Send</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="right-panel glass" id="rightPanel">
+              <div class="panel-header">
+                <div>
+                  <div class="eyebrow">Control center</div>
+                  <h2>Settings</h2>
+                </div>
+                <button class="icon-btn" id="rightPanelToggleBtn" title="Collapse panel">⇤</button>
+              </div>
+
+              <div class="settings-scroll">
+                <section class="settings-card">
+                  <div class="section-row">
+                    <h3>Chat</h3>
+                    <span class="shortcut-hint">Ctrl+N</span>
+                  </div>
+                  <label>
+                    <span>System prompt</span>
+                    <textarea id="systemPromptInput" rows="5" placeholder="Per-chat system prompt"></textarea>
+                  </label>
+                  <div class="field-grid two-col">
+                    <label>
+                      <span>Thinking</span>
+                      <select id="thinkingSelect">
+                        <option value="auto">Auto</option>
+                        <option value="enabled">Enabled</option>
+                        <option value="disabled">Disabled</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Response format</span>
+                      <select id="responseFormatSelect">
+                        <option value="text">Text</option>
+                        <option value="json_object">JSON object</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Temperature</span>
+                      <input id="temperatureInput" type="number" min="0" max="2" step="0.1" />
+                    </label>
+                    <label>
+                      <span>Max tokens</span>
+                      <input id="maxTokensInput" type="number" min="256" max="64000" step="128" />
+                    </label>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="streamToggle" type="checkbox" />
+                    <span>Stream responses</span>
+                  </label>
+                </section>
+
+                <section class="settings-card">
+                  <div class="section-row">
+                    <h3>Profiles</h3>
+                    <button class="ghost small" id="newProfileBtn">New</button>
+                  </div>
+                  <label>
+                    <span>Profile</span>
+                    <select id="profileSelect"></select>
+                  </label>
+                  <label>
+                    <span>Name</span>
+                    <input id="profileNameInput" type="text" placeholder="Profile name" />
+                  </label>
+                  <label>
+                    <span>Base URL</span>
+                    <input id="profileBaseUrlInput" type="text" placeholder="https://api.deepseek.com" />
+                  </label>
+                  <label>
+                    <span>API key</span>
+                    <input id="profileApiKeyInput" type="password" placeholder="Leave empty to keep stored key" />
+                    <small id="profileApiKeyStatus">No key stored.</small>
+                  </label>
+                  <label>
+                    <span>Default model</span>
+                    <input id="profileDefaultModelInput" type="text" placeholder="deepseek-chat" />
+                  </label>
+                  <div class="field-grid two-col">
+                    <label>
+                      <span>Default thinking</span>
+                      <select id="profileThinkingSelect">
+                        <option value="auto">Auto</option>
+                        <option value="enabled">Enabled</option>
+                        <option value="disabled">Disabled</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Default format</span>
+                      <select id="profileFormatSelect">
+                        <option value="text">Text</option>
+                        <option value="json_object">JSON object</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Default temperature</span>
+                      <input id="profileTemperatureInput" type="number" min="0" max="2" step="0.1" />
+                    </label>
+                    <label>
+                      <span>Default max tokens</span>
+                      <input id="profileMaxTokensInput" type="number" min="256" max="64000" step="128" />
+                    </label>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="profileStreamToggle" type="checkbox" />
+                    <span>Default streaming</span>
+                  </label>
+                  <label>
+                    <span>Default system prompt</span>
+                    <textarea id="profileSystemPromptInput" rows="4" placeholder="Profile default prompt"></textarea>
+                  </label>
+                  <div class="button-row">
+                    <button class="primary" id="saveProfileBtn">Save profile</button>
+                    <button class="ghost danger" id="deleteProfileBtn">Delete profile</button>
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div class="section-row">
+                    <h3>Desktop</h3>
+                    <span class="shortcut-hint">Ctrl+,</span>
+                  </div>
+                  <label>
+                    <span>Theme</span>
+                    <select id="themeSelect">
+                      <option value="midnight">Midnight</option>
+                      <option value="graphite">Graphite</option>
+                      <option value="aurora">Aurora</option>
+                    </select>
+                  </label>
+                  <label class="inline-toggle">
+                    <input id="notificationsToggle" type="checkbox" />
+                    <span>Notifications</span>
+                  </label>
+                  <label class="inline-toggle">
+                    <input id="autoLaunchToggle" type="checkbox" />
+                    <span>Launch at startup</span>
+                  </label>
+                  <label class="inline-toggle">
+                    <input id="autoUpdateToggle" type="checkbox" />
+                    <span>Auto-update checks</span>
+                  </label>
+                  <label class="inline-toggle">
+                    <input id="loggingToggle" type="checkbox" />
+                    <span>Controlled logging</span>
+                  </label>
+                  <div class="button-row wrap">
+                    <button class="ghost" id="downloadUpdateBtn">Download update</button>
+                    <button class="ghost" id="installUpdateBtn">Install update</button>
+                  </div>
+                  <div class="meta-box" id="metaBox"></div>
+                </section>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
