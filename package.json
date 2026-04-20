@@ -1,6 +1,6 @@
 {
   "name": "deepseek-desktop-wrapper",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "API-only DeepSeek desktop client built with Electron",
   "author": "Kinowill",
   "main": "src/main.js",
