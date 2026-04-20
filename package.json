@@ -1,6 +1,6 @@
 {
   "name": "deepseek-desktop-wrapper",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "API-only DeepSeek desktop client built with Electron",
   "author": "Kinowill",
   "main": "src/main.js",
@@ -10,6 +10,9 @@
     "lint:security": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^36.2.1",
