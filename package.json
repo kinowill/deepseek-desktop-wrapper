@@ -5,19 +5,22 @@
   "author": "Kinowill",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
+    "build:css": "tailwindcss -i src/input.css -o src/styles.css --minify",
+    "watch:css": "tailwindcss -i src/input.css -o src/styles.css --watch",
+    "start": "npm run build:css && electron .",
+    "dev": "npm run build:css && electron .",
     "lint:security": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
-    "pack": "electron-builder --dir --publish never",
-    "dist": "electron-builder --win nsis --publish never",
-    "release:tag": "electron-builder --win nsis --publish always"
+    "pack": "npm run build:css && electron-builder --dir --publish never",
+    "dist": "npm run build:css && electron-builder --win nsis --publish never",
+    "release:tag": "npm run build:css && electron-builder --win nsis --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "electron": "^36.9.5",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "tailwindcss": "^3.4.19"
   },
   "build": {
     "appId": "com.kinowill.deepseekdesktopwrapper",

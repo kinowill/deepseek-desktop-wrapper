@@ -2,256 +2,358 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.deepseek.com; frame-src 'self' https://chat.deepseek.com https://*.deepseek.com; child-src 'self' https://chat.deepseek.com https://*.deepseek.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.deepseek.com; frame-src 'self' https://chat.deepseek.com https://*.deepseek.com; child-src 'self' https://chat.deepseek.com https://*.deepseek.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DeepSeek Desktop</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body data-theme="midnight">
-    <div class="window-frame">
-      <header class="titlebar drag-region">
-        <div class="titlebar-left no-drag">
-          <button class="icon-btn" id="sidebarToggleBtn" title="Toggle sidebar">☰</button>
-          <div class="brand-pill">
-            <div class="brand-mark">DS</div>
-            <div>
-              <strong>DeepSeek Desktop</strong>
-              <span>Official wrapper + API workspace</span>
+  <body data-theme="midnight" class="h-full">
+    <div class="grid h-full grid-rows-[56px_1fr]">
+      <!-- ============== TITLEBAR ============== -->
+      <header class="drag-region flex items-center justify-between gap-3 border-b border-line/60 bg-bg-soft/60 px-4 backdrop-blur-glass">
+        <div class="no-drag flex min-w-0 items-center gap-3">
+          <button class="btn-icon" id="sidebarToggleBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
+            <span data-icon="panel-left" class="icon-md"></span>
+          </button>
+
+          <div class="flex items-center gap-2.5 rounded-lg border border-line/70 bg-white/[0.025] px-2.5 py-1.5">
+            <div class="grid h-8 w-8 place-items-center rounded-md text-[13px] font-bold text-accent-ink shadow-glow"
+              style="background-image: linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent-2)));">DS</div>
+            <div class="leading-tight">
+              <div class="text-[13px] font-semibold tracking-tight text-ink">DeepSeek Desktop</div>
+              <div class="text-[11px] text-ink-subtle">Wrapper officiel + workspace API</div>
             </div>
           </div>
-          <div class="mode-switch segmented">
-            <button class="seg-btn active" id="modeApiBtn" type="button">API</button>
-            <button class="seg-btn" id="modeWrapperBtn" type="button">Official</button>
+
+          <div class="flex items-center gap-1 rounded-lg border border-line/70 bg-white/[0.025] p-1" role="tablist" aria-label="Mode">
+            <button class="seg-btn active flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+              id="modeApiBtn" type="button" role="tab" aria-selected="true">
+              <span data-icon="sparkles" class="icon-sm"></span>API
+            </button>
+            <button class="seg-btn flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+              id="modeWrapperBtn" type="button" role="tab" aria-selected="false">
+              <span data-icon="globe" class="icon-sm"></span>Officiel
+            </button>
           </div>
-          <div class="status-cluster">
-            <span class="pill" id="onlinePill">Online</span>
-            <span class="pill" id="updatePill">Idle</span>
+
+          <div class="hidden items-center gap-1.5 lg:flex">
+            <span class="pill tabular-nums" id="onlinePill">Online</span>
+            <span class="pill tabular-nums" id="updatePill">Idle</span>
           </div>
         </div>
-        <div class="titlebar-right no-drag">
-          <button class="titlebar-btn" id="minimizeBtn" aria-label="Minimize">-</button>
-          <button class="titlebar-btn" id="maximizeBtn" aria-label="Maximize">▢</button>
-          <button class="titlebar-btn close" id="closeBtn" aria-label="Close">✕</button>
+
+        <div class="no-drag flex items-center gap-1">
+          <button class="btn-icon" id="minimizeBtn" aria-label="Minimize">
+            <span data-icon="minus" class="icon-md"></span>
+          </button>
+          <button class="btn-icon" id="maximizeBtn" aria-label="Maximize">
+            <span data-icon="square" class="icon-sm"></span>
+          </button>
+          <button class="btn-icon hover:!border-danger/40 hover:!bg-danger/15 hover:!text-danger" id="closeBtn" aria-label="Close">
+            <span data-icon="x" class="icon-md"></span>
+          </button>
         </div>
       </header>
 
-      <div class="app-shell" id="appShell">
-        <aside class="sidebar glass" id="sidebar">
-          <div class="sidebar-head">
-            <button class="primary wide" id="newChatBtn">New chat</button>
-            <input type="search" id="chatSearch" placeholder="Search conversations" />
-          </div>
+      <!-- ============== APP SHELL ============== -->
+      <div class="grid min-h-0 gap-4 p-4" style="grid-template-columns: 296px 1fr;" id="appShell">
 
-          <div class="sidebar-section sidebar-mode-note">
-            <div class="mode-note-card">
-              <div class="mode-note-top">
-                <span class="section-title">Modes</span>
-                <span class="shortcut-hint">Ctrl+1 / Ctrl+2</span>
-              </div>
-              <p>Official keeps the real DeepSeek web session. API uses your own key, profiles, exports and local tabs.</p>
+        <!-- ============== SIDEBAR ============== -->
+        <aside class="glass flex min-h-0 flex-col gap-3 rounded-2xl p-3" id="sidebar">
+          <div class="flex flex-col gap-2">
+            <button class="btn-primary w-full" id="newChatBtn">
+              <span data-icon="plus" class="icon-md"></span>
+              <span>Nouvelle conversation</span>
+            </button>
+            <div class="relative">
+              <span data-icon="search" class="icon-sm pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle"></span>
+              <input type="search" id="chatSearch" class="field !pl-9" placeholder="Rechercher" />
             </div>
           </div>
 
-          <div class="sidebar-section grow">
-            <div class="section-row">
+          <div class="card border-line/60 bg-white/[0.02]">
+            <div class="mb-1.5 flex items-center justify-between">
+              <span class="section-title">Modes</span>
+              <span class="kbd">Ctrl 1 / 2</span>
+            </div>
+            <p class="text-xs leading-relaxed text-ink-muted">
+              <strong class="font-semibold text-ink">Officiel</strong> garde la session web DeepSeek isolée.
+              <strong class="font-semibold text-ink">API</strong> utilise vos profils, clés et conversations locales.
+            </p>
+          </div>
+
+          <div class="flex min-h-0 flex-1 flex-col gap-2">
+            <div class="flex items-center justify-between px-1">
               <span class="section-title">Conversations</span>
-              <span class="shortcut-hint">Ctrl+K</span>
+              <span class="kbd">Ctrl K</span>
             </div>
-            <div class="conversation-list" id="conversationList"></div>
+            <div class="flex min-h-0 flex-col gap-1.5 overflow-y-auto pr-1" id="conversationList"></div>
           </div>
 
-          <div class="sidebar-section sidebar-footer">
-            <div class="section-row">
-              <span class="section-title">Quick actions</span>
-            </div>
-            <button class="ghost wide" id="exportAllBtn">Export all chats</button>
-            <button class="ghost wide" id="importChatsBtn">Import chats</button>
-            <button class="ghost wide" id="checkUpdatesBtn">Check updates</button>
-            <button class="ghost wide" id="openLogsBtn">Open logs folder</button>
+          <div class="mt-auto flex flex-col gap-1.5 border-t border-line/40 pt-3">
+            <span class="section-title px-1 pb-1">Actions rapides</span>
+            <button class="btn-soft w-full justify-start" id="exportAllBtn">
+              <span data-icon="download" class="icon-md"></span>Exporter tout
+            </button>
+            <button class="btn-soft w-full justify-start" id="importChatsBtn">
+              <span data-icon="upload" class="icon-md"></span>Importer des chats
+            </button>
+            <button class="btn-soft w-full justify-start" id="checkUpdatesBtn">
+              <span data-icon="refresh-cw" class="icon-md"></span>Mises à jour
+            </button>
+            <button class="btn-soft w-full justify-start" id="openLogsBtn">
+              <span data-icon="folder-open" class="icon-md"></span>Dossier logs
+            </button>
           </div>
         </aside>
 
-        <main class="content-host">
-          <section class="workspace api-workspace" id="apiWorkspace">
-            <div class="tabs-bar glass" id="tabsBar"></div>
+        <!-- ============== CONTENT HOST ============== -->
+        <main class="min-h-0 min-w-0">
+          <!-- API workspace -->
+          <section class="grid h-full min-h-0 grid-rows-[auto_auto_1fr] gap-3" id="apiWorkspace">
+            <div class="glass flex min-h-[52px] items-center gap-2 overflow-x-auto rounded-xl p-2" id="tabsBar"></div>
 
-            <div class="banner-row">
-              <div class="banner hidden" id="offlineBanner">Offline mode. Conversations remain available locally. Failed sends stay pending until retry.</div>
-              <div class="banner hidden" id="toastBanner"></div>
+            <div class="flex flex-col gap-2" id="bannerRow">
+              <div class="hidden rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning" id="offlineBanner">
+                Mode hors-ligne. Conversations disponibles localement. Les envois échoués restent en attente.
+              </div>
+              <div class="hidden rounded-lg border border-line/70 bg-white/[0.04] px-3 py-2 text-sm text-ink" id="toastBanner"></div>
             </div>
 
-            <div class="workspace-grid">
-              <section class="chat-stage glass">
-                <div class="chat-toolbar">
-                  <div>
-                    <div class="eyebrow">API conversation</div>
-                    <input class="chat-title-input" id="chatTitleInput" type="text" placeholder="Conversation title" />
+            <div class="grid min-h-0 gap-4" id="workspaceGrid" style="grid-template-columns: minmax(0, 1fr) 380px;">
+              <!-- chat stage -->
+              <section class="glass grid min-h-0 grid-rows-[auto_1fr_auto] gap-3 rounded-2xl p-5">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="eyebrow mb-1">Conversation API</div>
+                    <input class="w-full max-w-[560px] border-none bg-transparent p-0 text-2xl font-bold tracking-tight text-ink placeholder:text-ink-subtle focus:outline-none"
+                      id="chatTitleInput" type="text" placeholder="Titre de la conversation" />
                   </div>
-                  <div class="chat-toolbar-actions">
-                    <select id="activeProfileSelect"></select>
-                    <select id="chatModelSelect"></select>
-                    <button class="ghost" id="refreshModelsBtn">Refresh models</button>
-                    <button class="ghost" id="exportCurrentBtn">Export current</button>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <select id="activeProfileSelect" class="field !py-1.5 !text-xs"></select>
+                    <select id="chatModelSelect" class="field !py-1.5 !text-xs"></select>
+                    <button class="btn-ghost !px-2.5 !py-1.5" id="refreshModelsBtn" title="Recharger les modèles">
+                      <span data-icon="refresh-cw" class="icon-sm"></span>
+                    </button>
+                    <button class="btn-ghost !px-2.5 !py-1.5" id="exportCurrentBtn" title="Exporter">
+                      <span data-icon="download" class="icon-sm"></span>
+                    </button>
                   </div>
                 </div>
 
-                <div class="message-list" id="messageList"></div>
+                <div class="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1" id="messageList"></div>
 
-                <div class="composer-panel">
-                  <div class="attachment-strip" id="attachmentStrip"></div>
-                  <textarea id="composer" rows="5" placeholder="Write a message. Ctrl+Enter to send."></textarea>
-                  <div class="composer-bottom">
-                    <div class="composer-left">
-                      <button class="ghost" id="attachBtn">Attach files</button>
-                      <button class="ghost" id="starterBtn">Starter prompt</button>
-                      <span class="tiny-muted" id="draftInfo">Draft saved locally</span>
+                <div class="flex flex-col gap-2 border-t border-line/40 pt-3">
+                  <div class="flex flex-wrap gap-1.5" id="attachmentStrip"></div>
+                  <textarea id="composer" class="field min-h-[96px] resize-y leading-relaxed" rows="4"
+                    placeholder="Écrivez un message. Ctrl+Enter pour envoyer."></textarea>
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <button class="btn-ghost !py-1.5" id="attachBtn">
+                        <span data-icon="paperclip" class="icon-sm"></span>Pièces jointes
+                      </button>
+                      <button class="btn-ghost !py-1.5" id="starterBtn">
+                        <span data-icon="lightbulb" class="icon-sm"></span>Prompt de départ
+                      </button>
+                      <span class="text-xs text-ink-subtle" id="draftInfo">Brouillon enregistré</span>
                     </div>
-                    <div class="composer-right">
-                      <button class="ghost" id="saveChatBtn">Save now</button>
-                      <button class="primary" id="sendBtn">Send</button>
+                    <div class="flex items-center gap-2">
+                      <button class="btn-ghost !py-1.5" id="saveChatBtn">
+                        <span data-icon="save" class="icon-sm"></span>Enregistrer
+                      </button>
+                      <button class="btn-primary !py-2" id="sendBtn">
+                        <span data-icon="send" class="icon-sm"></span>Envoyer
+                      </button>
                     </div>
                   </div>
                 </div>
               </section>
 
-              <aside class="right-panel glass" id="rightPanel">
-                <div class="panel-header">
+              <!-- right panel -->
+              <aside class="glass grid min-h-0 grid-rows-[auto_1fr] gap-3 rounded-2xl p-5" id="rightPanel">
+                <div class="flex items-center justify-between gap-3">
                   <div>
-                    <div class="eyebrow">Control center</div>
-                    <h2>Settings</h2>
+                    <div class="eyebrow mb-1">Centre de contrôle</div>
+                    <h2 class="m-0 text-xl font-semibold tracking-tight">Réglages</h2>
                   </div>
-                  <button class="icon-btn" id="rightPanelToggleBtn" title="Collapse panel">⇤</button>
+                  <button class="btn-icon" id="rightPanelToggleBtn" title="Réduire">
+                    <span data-icon="panel-right" class="icon-md"></span>
+                  </button>
                 </div>
 
-                <div class="settings-scroll">
-                  <section class="settings-card">
-                    <div class="section-row">
-                      <h3>Chat</h3>
-                      <span class="shortcut-hint">Ctrl+N</span>
+                <div class="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1" id="settingsScroll">
+                  <!-- Chat card -->
+                  <section class="card">
+                    <div class="mb-3 flex items-center justify-between">
+                      <h3 class="m-0 flex items-center gap-2 text-sm font-semibold tracking-tight">
+                        <span data-icon="message-square" class="icon-sm text-accent"></span>Chat
+                      </h3>
+                      <span class="kbd">Ctrl N</span>
                     </div>
-                    <label>
-                      <span>System prompt</span>
-                      <textarea id="systemPromptInput" rows="5" placeholder="Per-chat system prompt"></textarea>
-                    </label>
-                    <div class="field-grid two-col">
-                      <label>
-                        <span>Thinking</span>
-                        <select id="thinkingSelect">
-                          <option value="auto">Auto</option>
-                          <option value="enabled">Enabled</option>
-                          <option value="disabled">Disabled</option>
-                        </select>
+                    <div class="flex flex-col gap-3">
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-ink-muted">System prompt</span>
+                        <textarea id="systemPromptInput" class="field" rows="4" placeholder="System prompt par chat"></textarea>
                       </label>
-                      <label>
-                        <span>Response format</span>
-                        <select id="responseFormatSelect">
-                          <option value="text">Text</option>
-                          <option value="json_object">JSON object</option>
-                        </select>
+                      <div class="grid grid-cols-2 gap-2">
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Thinking</span>
+                          <select id="thinkingSelect" class="field">
+                            <option value="auto">Auto</option>
+                            <option value="enabled">Activé</option>
+                            <option value="disabled">Désactivé</option>
+                          </select>
+                        </label>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Format réponse</span>
+                          <select id="responseFormatSelect" class="field">
+                            <option value="text">Texte</option>
+                            <option value="json_object">JSON</option>
+                          </select>
+                        </label>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Température</span>
+                          <input id="temperatureInput" class="field" type="number" min="0" max="2" step="0.1" />
+                        </label>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Max tokens</span>
+                          <input id="maxTokensInput" class="field" type="number" min="256" max="64000" step="128" />
+                        </label>
+                      </div>
+                      <label class="flex items-center gap-2 text-sm">
+                        <input id="streamToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+                        <span class="text-ink">Réponses en streaming</span>
                       </label>
-                      <label>
-                        <span>Temperature</span>
-                        <input id="temperatureInput" type="number" min="0" max="2" step="0.1" />
-                      </label>
-                      <label>
-                        <span>Max tokens</span>
-                        <input id="maxTokensInput" type="number" min="256" max="64000" step="128" />
-                      </label>
-                    </div>
-                    <label class="inline-toggle">
-                      <input id="streamToggle" type="checkbox" />
-                      <span>Stream responses</span>
-                    </label>
-                  </section>
-
-                  <section class="settings-card">
-                    <div class="section-row">
-                      <h3>Profiles</h3>
-                      <button class="ghost small" id="newProfileBtn">New</button>
-                    </div>
-                    <label>
-                      <span>Profile</span>
-                      <select id="profileSelect"></select>
-                    </label>
-                    <label>
-                      <span>Name</span>
-                      <input id="profileNameInput" type="text" placeholder="Profile name" />
-                    </label>
-                    <label>
-                      <span>Base URL</span>
-                      <input id="profileBaseUrlInput" type="text" placeholder="https://api.deepseek.com" />
-                    </label>
-                    <label>
-                      <span>API key</span>
-                      <input id="profileApiKeyInput" type="password" placeholder="Leave empty to keep stored key" />
-                      <small id="profileApiKeyStatus">No key stored.</small>
-                    </label>
-                    <label>
-                      <span>Default model</span>
-                      <input id="profileDefaultModelInput" type="text" placeholder="deepseek-chat" />
-                    </label>
-                    <div class="field-grid two-col">
-                      <label>
-                        <span>Default thinking</span>
-                        <select id="profileThinkingSelect">
-                          <option value="auto">Auto</option>
-                          <option value="enabled">Enabled</option>
-                          <option value="disabled">Disabled</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Default format</span>
-                        <select id="profileFormatSelect">
-                          <option value="text">Text</option>
-                          <option value="json_object">JSON object</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Default temperature</span>
-                        <input id="profileTemperatureInput" type="number" min="0" max="2" step="0.1" />
-                      </label>
-                      <label>
-                        <span>Default max tokens</span>
-                        <input id="profileMaxTokensInput" type="number" min="256" max="64000" step="128" />
-                      </label>
-                    </div>
-                    <label class="inline-toggle">
-                      <input id="profileStreamToggle" type="checkbox" />
-                      <span>Stream by default</span>
-                    </label>
-                    <label>
-                      <span>Default system prompt</span>
-                      <textarea id="profileSystemPromptInput" rows="4"></textarea>
-                    </label>
-                    <div class="button-row wrap">
-                      <button class="primary" id="saveProfileBtn">Save profile</button>
-                      <button class="ghost danger" id="deleteProfileBtn">Delete profile</button>
                     </div>
                   </section>
 
-                  <section class="settings-card">
-                    <div class="section-row">
-                      <h3>Desktop</h3>
-                      <span class="shortcut-hint">Ctrl+,</span>
+                  <!-- Profiles card -->
+                  <section class="card">
+                    <div class="mb-3 flex items-center justify-between">
+                      <h3 class="m-0 flex items-center gap-2 text-sm font-semibold tracking-tight">
+                        <span data-icon="user" class="icon-sm text-accent"></span>Profils
+                      </h3>
+                      <button class="btn-soft !px-2 !py-1 text-xs" id="newProfileBtn">
+                        <span data-icon="plus" class="icon-sm"></span>Nouveau
+                      </button>
                     </div>
-                    <div class="field-grid two-col">
-                      <label>
-                        <span>Theme</span>
-                        <select id="themeSelect">
-                          <option value="midnight">Midnight</option>
-                          <option value="graphite">Graphite</option>
-                          <option value="aurora">Aurora</option>
-                        </select>
+                    <div class="flex flex-col gap-3">
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-ink-muted">Profil</span>
+                        <select id="profileSelect" class="field"></select>
                       </label>
-                      <div class="meta-box" id="metaBox"></div>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-ink-muted">Nom</span>
+                        <input id="profileNameInput" class="field" type="text" placeholder="Nom du profil" />
+                      </label>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-ink-muted">Base URL</span>
+                        <input id="profileBaseUrlInput" class="field" type="text" placeholder="https://api.deepseek.com" />
+                      </label>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                          <span data-icon="key-round" class="icon-sm"></span>Clé API
+                        </span>
+                        <input id="profileApiKeyInput" class="field font-mono text-xs" type="password" placeholder="Vide pour conserver la clé existante" />
+                        <small id="profileApiKeyStatus" class="text-xs text-ink-subtle">Aucune clé enregistrée.</small>
+                      </label>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-ink-muted">Modèle par défaut</span>
+                        <input id="profileDefaultModelInput" class="field font-mono text-xs" type="text" placeholder="deepseek-chat" />
+                      </label>
+                      <div class="grid grid-cols-2 gap-2">
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Thinking défaut</span>
+                          <select id="profileThinkingSelect" class="field">
+                            <option value="auto">Auto</option>
+                            <option value="enabled">Activé</option>
+                            <option value="disabled">Désactivé</option>
+                          </select>
+                        </label>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Format défaut</span>
+                          <select id="profileFormatSelect" class="field">
+                            <option value="text">Texte</option>
+                            <option value="json_object">JSON</option>
+                          </select>
+                        </label>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Température défaut</span>
+                          <input id="profileTemperatureInput" class="field" type="number" min="0" max="2" step="0.1" />
+                        </label>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Max tokens défaut</span>
+                          <input id="profileMaxTokensInput" class="field" type="number" min="256" max="64000" step="128" />
+                        </label>
+                      </div>
+                      <label class="flex items-center gap-2 text-sm">
+                        <input id="profileStreamToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+                        <span class="text-ink">Stream par défaut</span>
+                      </label>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-ink-muted">System prompt par défaut</span>
+                        <textarea id="profileSystemPromptInput" class="field" rows="3"></textarea>
+                      </label>
+                      <div class="flex flex-wrap gap-2">
+                        <button class="btn-primary flex-1" id="saveProfileBtn">
+                          <span data-icon="save" class="icon-sm"></span>Enregistrer
+                        </button>
+                        <button class="btn-danger" id="deleteProfileBtn">
+                          <span data-icon="trash-2" class="icon-sm"></span>Supprimer
+                        </button>
+                      </div>
                     </div>
-                    <label class="inline-toggle"><input id="notificationsToggle" type="checkbox" /><span>Notifications</span></label>
-                    <label class="inline-toggle"><input id="autoLaunchToggle" type="checkbox" /><span>Open at login</span></label>
-                    <label class="inline-toggle"><input id="autoUpdateToggle" type="checkbox" /><span>Auto update</span></label>
-                    <label class="inline-toggle"><input id="loggingToggle" type="checkbox" /><span>Controlled logging</span></label>
-                    <div class="button-row wrap">
-                      <button class="ghost" id="downloadUpdateBtn">Download update</button>
-                      <button class="ghost" id="installUpdateBtn">Install update</button>
+                  </section>
+
+                  <!-- Desktop card -->
+                  <section class="card">
+                    <div class="mb-3 flex items-center justify-between">
+                      <h3 class="m-0 flex items-center gap-2 text-sm font-semibold tracking-tight">
+                        <span data-icon="settings" class="icon-sm text-accent"></span>Application
+                      </h3>
+                      <span class="kbd">Ctrl ,</span>
+                    </div>
+                    <div class="flex flex-col gap-3">
+                      <div class="grid grid-cols-2 gap-2">
+                        <label class="flex flex-col gap-1.5">
+                          <span class="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                            <span data-icon="palette" class="icon-sm"></span>Thème
+                          </span>
+                          <select id="themeSelect" class="field">
+                            <option value="midnight">Midnight</option>
+                            <option value="graphite">Graphite</option>
+                            <option value="aurora">Aurora</option>
+                          </select>
+                        </label>
+                        <div class="flex flex-col gap-1.5">
+                          <span class="text-xs font-medium text-ink-muted">Build</span>
+                          <div id="metaBox" class="rounded-md border border-dashed border-line/60 bg-white/[0.02] px-2.5 py-2 font-mono text-[11px] text-ink-muted"></div>
+                        </div>
+                      </div>
+                      <label class="flex items-center justify-between gap-2 text-sm">
+                        <span class="flex items-center gap-2 text-ink"><span data-icon="bell" class="icon-sm text-ink-muted"></span>Notifications</span>
+                        <input id="notificationsToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+                      </label>
+                      <label class="flex items-center justify-between gap-2 text-sm">
+                        <span class="flex items-center gap-2 text-ink"><span data-icon="rocket" class="icon-sm text-ink-muted"></span>Ouvrir au démarrage</span>
+                        <input id="autoLaunchToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+                      </label>
+                      <label class="flex items-center justify-between gap-2 text-sm">
+                        <span class="flex items-center gap-2 text-ink"><span data-icon="refresh-cw" class="icon-sm text-ink-muted"></span>Mise à jour auto</span>
+                        <input id="autoUpdateToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+                      </label>
+                      <label class="flex items-center justify-between gap-2 text-sm">
+                        <span class="flex items-center gap-2 text-ink"><span data-icon="logs" class="icon-sm text-ink-muted"></span>Journalisation</span>
+                        <input id="loggingToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+                      </label>
+                      <div class="flex flex-wrap gap-2">
+                        <button class="btn-ghost flex-1" id="downloadUpdateBtn">
+                          <span data-icon="download" class="icon-sm"></span>Télécharger MAJ
+                        </button>
+                        <button class="btn-ghost flex-1" id="installUpdateBtn">
+                          <span data-icon="check" class="icon-sm"></span>Installer MAJ
+                        </button>
+                      </div>
                     </div>
                   </section>
                 </div>
@@ -259,25 +361,34 @@
             </div>
           </section>
 
-          <section class="workspace wrapper-workspace hidden" id="wrapperWorkspace">
-            <div class="wrapper-shell glass">
-              <div class="wrapper-toolbar">
-                <div>
-                  <div class="eyebrow">Official DeepSeek</div>
-                  <div class="wrapper-title-row">
-                    <h2>Wrapper mode</h2>
-                    <span class="wrapper-status" id="wrapperStatus">Idle</span>
+          <!-- Wrapper workspace -->
+          <section class="hidden h-full min-h-0" id="wrapperWorkspace">
+            <div class="glass grid h-full min-h-0 grid-rows-[auto_1fr] gap-3 rounded-2xl p-4">
+              <div class="flex flex-wrap items-start justify-between gap-3 px-1 pt-1">
+                <div class="min-w-0 flex-1">
+                  <div class="eyebrow mb-1">Officiel DeepSeek</div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="m-0 text-2xl font-semibold tracking-tight">Mode wrapper</h2>
+                    <span class="pill" id="wrapperStatus">Idle</span>
                   </div>
-                  <p class="wrapper-copy" id="wrapperHint">Use the official DeepSeek web product in an isolated session. Your API profiles remain separate.</p>
+                  <p class="mt-1 max-w-2xl text-sm leading-relaxed text-ink-muted" id="wrapperHint">
+                    Utilisez le produit web officiel DeepSeek dans une session isolée. Vos profils API restent séparés.
+                  </p>
                 </div>
-                <div class="wrapper-actions">
-                  <button class="ghost" id="wrapperHomeBtn">Home</button>
-                  <button class="ghost" id="wrapperReloadBtn">Reload</button>
-                  <button class="primary" id="wrapperOpenExternalBtn">Open in browser</button>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button class="btn-ghost" id="wrapperHomeBtn">
+                    <span data-icon="home" class="icon-sm"></span>Accueil
+                  </button>
+                  <button class="btn-ghost" id="wrapperReloadBtn">
+                    <span data-icon="refresh-cw" class="icon-sm"></span>Recharger
+                  </button>
+                  <button class="btn-primary" id="wrapperOpenExternalBtn">
+                    <span data-icon="external-link" class="icon-sm"></span>Ouvrir dans le navigateur
+                  </button>
                 </div>
               </div>
-              <div class="wrapper-frame glass">
-                <webview id="officialWrapperView" src="https://chat.deepseek.com/" allowpopups="false"></webview>
+              <div class="min-h-0 overflow-hidden rounded-xl border border-line/60 bg-bg-soft">
+                <webview id="officialWrapperView" src="https://chat.deepseek.com/" allowpopups="false" class="h-full w-full"></webview>
               </div>
             </div>
           </section>
@@ -285,6 +396,7 @@
       </div>
     </div>
 
+    <script src="./icons.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>
