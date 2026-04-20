@@ -16,6 +16,10 @@ const MAX_ATTACHMENT_TEXT = 16000;
 const ALLOWED_RESPONSE_FORMATS = new Set(['text', 'json_object']);
 const ALLOWED_THINKING = new Set(['auto', 'enabled', 'disabled']);
 const ALLOWED_THEMES = new Set(['midnight', 'graphite', 'aurora']);
+const ALLOWED_MODES = new Set(['api', 'wrapper']);
+const WRAPPER_HOME_URL = 'https://chat.deepseek.com/';
+const WRAPPER_PARTITION = 'persist:deepseek-official';
+const WRAPPER_ALLOWED_HOST_SUFFIXES = ['deepseek.com'];
 const TEXT_EXTENSIONS = new Set([
   '.txt', '.md', '.markdown', '.json', '.jsonl', '.csv', '.tsv', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.scss',
   '.py', '.go', '.rs', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp', '.sh', '.ps1', '.yml', '.yaml', '.xml',
@@ -52,6 +56,27 @@ function sanitizeBaseUrl(input) {
   } catch {
     return fallback;
   }
+}
+
+function sanitizeWrapperUrl(input) {
+  try {
+    const url = new URL(input || WRAPPER_HOME_URL);
+    const host = url.hostname.toLowerCase();
+    const allowed = url.protocol === 'https:' && WRAPPER_ALLOWED_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+    return allowed ? url.toString() : WRAPPER_HOME_URL;
+  } catch {
+    return WRAPPER_HOME_URL;
+  }
+}
+
+function isAllowedWrapperUrl(input) {
+  return sanitizeWrapperUrl(input) === (() => {
+    try {
+      return new URL(input).toString();
+    } catch {
+      return '';
+    }
+  })();
 }
 
 function encryptString(value) {
@@ -129,6 +154,8 @@ function defaultState() {
       autoUpdateEnabled: true,
       loggingEnabled: true,
       rightPanelCollapsed: false,
+      currentMode: 'api',
+      wrapperUrl: WRAPPER_HOME_URL,
       lastUpdateCheckAt: null
     }
   };
@@ -230,6 +257,8 @@ function normalizePrivateState(raw = {}) {
     autoUpdateEnabled: raw.ui?.autoUpdateEnabled !== false,
     loggingEnabled: raw.ui?.loggingEnabled !== false,
     rightPanelCollapsed: Boolean(raw.ui?.rightPanelCollapsed),
+    currentMode: ALLOWED_MODES.has(raw.ui?.currentMode) ? raw.ui.currentMode : 'api',
+    wrapperUrl: sanitizeWrapperUrl(raw.ui?.wrapperUrl),
     lastUpdateCheckAt: raw.ui?.lastUpdateCheckAt || null
   };
 
@@ -335,6 +364,8 @@ function sanitizeIncomingState(payload = {}, current = readState()) {
       autoUpdateEnabled: payload.ui?.autoUpdateEnabled !== false,
       loggingEnabled: payload.ui?.loggingEnabled !== false,
       rightPanelCollapsed: Boolean(payload.ui?.rightPanelCollapsed),
+      currentMode: ALLOWED_MODES.has(payload.ui?.currentMode) ? payload.ui.currentMode : current.ui.currentMode,
+      wrapperUrl: sanitizeWrapperUrl(payload.ui?.wrapperUrl || current.ui.wrapperUrl),
       lastUpdateCheckAt: payload.ui?.lastUpdateCheckAt || current.ui.lastUpdateCheckAt || null
     }
   };
@@ -454,7 +485,7 @@ function createSplashWindow() {
           <div style="text-align:center;">
             <div style="font-size:58px;font-weight:800;letter-spacing:.08em;">DS</div>
             <div style="margin-top:10px;font-size:18px;font-weight:600;">DeepSeek Desktop</div>
-            <div style="margin-top:8px;color:#8db8ff;font-size:13px;">API-first workspace is loading</div>
+            <div style="margin-top:8px;color:#8db8ff;font-size:13px;">Hybrid workspace is loading</div>
           </div>
         </div>
       </body>
@@ -482,7 +513,8 @@ function createMainWindow() {
       sandbox: true,
       devTools: !app.isPackaged,
       webSecurity: true,
-      allowRunningInsecureContent: false
+      allowRunningInsecureContent: false,
+      webviewTag: true
     }
   });
 
@@ -515,6 +547,50 @@ function createMainWindow() {
       // ignore invalid urls
     }
     return { action: 'deny' };
+  });
+}
+
+function setupWebviewSecurity() {
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-attach-webview', (event, webPreferences, params) => {
+      if (!isAllowedWrapperUrl(params.src)) {
+        event.preventDefault();
+        appendLog('warning', 'Blocked wrapper attachment', { src: params.src });
+        return;
+      }
+
+      delete webPreferences.preload;
+      delete webPreferences.preloadURL;
+      webPreferences.nodeIntegration = false;
+      webPreferences.contextIsolation = true;
+      webPreferences.sandbox = true;
+      webPreferences.webSecurity = true;
+      webPreferences.allowRunningInsecureContent = false;
+      webPreferences.partition = WRAPPER_PARTITION;
+      webPreferences.devTools = !app.isPackaged;
+
+      params.partition = WRAPPER_PARTITION;
+      params.allowpopups = 'false';
+    });
+
+    if (contents.getType() === 'webview') {
+      contents.setWindowOpenHandler(({ url }) => {
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol === 'https:') shell.openExternal(url);
+        } catch {
+          // ignore invalid urls
+        }
+        return { action: 'deny' };
+      });
+
+      contents.on('will-navigate', (event, url) => {
+        if (!isAllowedWrapperUrl(url)) {
+          event.preventDefault();
+          try { shell.openExternal(url); } catch {}
+        }
+      });
+    }
   });
 }
 
@@ -939,6 +1015,7 @@ app.whenReady().then(() => {
   readState();
   applyDesktopPreferences(readState());
   createSplashWindow();
+  setupWebviewSecurity();
   createMainWindow();
   createTray();
   registerIpc();

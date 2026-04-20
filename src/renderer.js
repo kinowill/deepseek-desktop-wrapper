@@ -12,6 +12,8 @@ const appState = {
     autoUpdateEnabled: true,
     loggingEnabled: true,
     rightPanelCollapsed: false,
+    currentMode: 'api',
+    wrapperUrl: 'https://chat.deepseek.com/',
     lastUpdateCheckAt: null
   }
 };
@@ -26,13 +28,18 @@ const runtime = {
   isMaximized: false,
   updateStatus: 'idle',
   toastTimer: null,
-  appMeta: null
+  appMeta: null,
+  wrapperInitialized: false
 };
 
 const el = {
   body: document.body,
   appShell: document.getElementById('appShell'),
+  apiWorkspace: document.getElementById('apiWorkspace'),
+  wrapperWorkspace: document.getElementById('wrapperWorkspace'),
   sidebarToggleBtn: document.getElementById('sidebarToggleBtn'),
+  modeApiBtn: document.getElementById('modeApiBtn'),
+  modeWrapperBtn: document.getElementById('modeWrapperBtn'),
   conversationList: document.getElementById('conversationList'),
   chatSearch: document.getElementById('chatSearch'),
   newChatBtn: document.getElementById('newChatBtn'),
@@ -91,7 +98,13 @@ const el = {
   updatePill: document.getElementById('updatePill'),
   minimizeBtn: document.getElementById('minimizeBtn'),
   maximizeBtn: document.getElementById('maximizeBtn'),
-  closeBtn: document.getElementById('closeBtn')
+  closeBtn: document.getElementById('closeBtn'),
+  wrapperWebview: document.getElementById('officialWrapperView'),
+  wrapperStatus: document.getElementById('wrapperStatus'),
+  wrapperHint: document.getElementById('wrapperHint'),
+  wrapperReloadBtn: document.getElementById('wrapperReloadBtn'),
+  wrapperHomeBtn: document.getElementById('wrapperHomeBtn'),
+  wrapperOpenExternalBtn: document.getElementById('wrapperOpenExternalBtn')
 };
 
 const starterPrompt = 'Structure the task, surface the constraints, and produce a clean execution plan with concise next actions.';
@@ -256,13 +269,19 @@ function hydrate(state) {
     ? runtime.selectedProfileEditorId
     : appState.activeProfileId;
 
+  appState.ui.currentMode = ['api', 'wrapper'].includes(appState.ui.currentMode) ? appState.ui.currentMode : 'api';
+  appState.ui.wrapperUrl = typeof appState.ui.wrapperUrl === 'string' && appState.ui.wrapperUrl.startsWith('https://')
+    ? appState.ui.wrapperUrl
+    : 'https://chat.deepseek.com/';
+
   renderAll();
 }
 
 function renderAll() {
   el.body.dataset.theme = appState.ui.theme;
   el.appShell.classList.toggle('sidebar-collapsed', appState.ui.sidebarCollapsed);
-  el.rightPanel.closest('.workspace').classList.toggle('collapsed-right', appState.ui.rightPanelCollapsed);
+  el.apiWorkspace.classList.toggle('collapsed-right', appState.ui.rightPanelCollapsed);
+  renderMode();
   renderConversations();
   renderTabs();
   renderProfiles();
@@ -270,6 +289,61 @@ function renderAll() {
   renderDesktopSettings();
   renderMeta();
   renderOnlineState();
+}
+
+function renderMode() {
+  const wrapperMode = appState.ui.currentMode === 'wrapper';
+  el.modeApiBtn.classList.toggle('active', !wrapperMode);
+  el.modeWrapperBtn.classList.toggle('active', wrapperMode);
+  el.apiWorkspace.classList.toggle('hidden', wrapperMode);
+  el.wrapperWorkspace.classList.toggle('hidden', !wrapperMode);
+  if (wrapperMode) {
+    initializeWrapper();
+  }
+}
+
+function updateWrapperStatus(label, detail = '') {
+  el.wrapperStatus.textContent = label;
+  if (detail) {
+    el.wrapperHint.textContent = detail;
+  }
+}
+
+function initializeWrapper() {
+  if (runtime.wrapperInitialized || !el.wrapperWebview) return;
+  runtime.wrapperInitialized = true;
+
+  if (!el.wrapperWebview.src) {
+    el.wrapperWebview.src = appState.ui.wrapperUrl || 'https://chat.deepseek.com/';
+  }
+
+  el.wrapperWebview.addEventListener('did-start-loading', () => {
+    updateWrapperStatus('Loading', 'DeepSeek official is loading in an isolated session.');
+  });
+
+  el.wrapperWebview.addEventListener('did-stop-loading', () => {
+    updateWrapperStatus('Ready', 'Official DeepSeek is loaded. The wrapper session stays separate from your API profiles.');
+  });
+
+  el.wrapperWebview.addEventListener('did-fail-load', (event) => {
+    updateWrapperStatus('Load error', event.errorDescription || 'The official wrapper failed to load.');
+  });
+
+  el.wrapperWebview.addEventListener('page-title-updated', (event) => {
+    if (event.title) {
+      updateWrapperStatus('Ready', event.title);
+    }
+  });
+
+  const syncUrl = (url) => {
+    if (url && url.startsWith('https://')) {
+      appState.ui.wrapperUrl = url;
+      schedulePersist();
+    }
+  };
+
+  el.wrapperWebview.addEventListener('did-navigate', (event) => syncUrl(event.url));
+  el.wrapperWebview.addEventListener('did-navigate-in-page', (event) => syncUrl(event.url));
 }
 
 function renderConversations() {
@@ -710,6 +784,19 @@ function bindEvents() {
     await persistState();
   });
 
+  el.modeApiBtn.addEventListener('click', async () => {
+    appState.ui.currentMode = 'api';
+    renderAll();
+    await persistState();
+  });
+
+  el.modeWrapperBtn.addEventListener('click', async () => {
+    appState.ui.currentMode = 'wrapper';
+    initializeWrapper();
+    renderAll();
+    await persistState();
+  });
+
   el.rightPanelToggleBtn.addEventListener('click', async () => {
     appState.ui.rightPanelCollapsed = !appState.ui.rightPanelCollapsed;
     await persistState();
@@ -861,6 +948,21 @@ function bindEvents() {
     appState.ui.loggingEnabled = el.loggingToggle.checked;
     await persistState();
   });
+  el.wrapperHomeBtn.addEventListener('click', () => {
+    appState.ui.wrapperUrl = 'https://chat.deepseek.com/';
+    if (el.wrapperWebview) {
+      el.wrapperWebview.loadURL(appState.ui.wrapperUrl);
+    }
+    schedulePersist();
+  });
+  el.wrapperReloadBtn.addEventListener('click', () => {
+    if (el.wrapperWebview) el.wrapperWebview.reload();
+  });
+  el.wrapperOpenExternalBtn.addEventListener('click', () => {
+    const targetUrl = appState.ui.wrapperUrl || 'https://chat.deepseek.com/';
+    window.open(targetUrl, '_blank');
+  });
+
   el.downloadUpdateBtn.addEventListener('click', async () => {
     const result = await window.desktopAPI.downloadUpdate();
     if (!result.ok) showToast(result.reason || 'Update download unavailable.', true);
@@ -885,6 +987,19 @@ function bindEvents() {
       event.preventDefault();
       el.chatSearch.focus();
       el.chatSearch.select();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === '1') {
+      event.preventDefault();
+      appState.ui.currentMode = 'api';
+      renderAll();
+      schedulePersist();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === '2') {
+      event.preventDefault();
+      appState.ui.currentMode = 'wrapper';
+      initializeWrapper();
+      renderAll();
+      schedulePersist();
     }
     if ((event.ctrlKey || event.metaKey) && event.key === ',') {
       event.preventDefault();
@@ -944,6 +1059,9 @@ async function bootstrap() {
   runtime.appMeta = await window.desktopAPI.getAppMeta();
   const state = await window.desktopAPI.getState();
   hydrate(state);
+  if (appState.ui.currentMode === 'wrapper') {
+    initializeWrapper();
+  }
 }
 
 bootstrap().catch((error) => {

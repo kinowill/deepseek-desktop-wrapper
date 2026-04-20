@@ -1,46 +1,67 @@
 {
   "name": "deepseek-desktop-wrapper",
-  "version": "0.4.4",
-  "description": "API-only DeepSeek desktop client built with Electron",
+  "version": "0.5.0",
+  "description": "Hybrid DeepSeek desktop workspace with official wrapper and API mode.",
   "author": "Kinowill",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "lint:security": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder --win nsis"
+    "pack": "electron-builder --dir --publish never",
+    "dist": "electron-builder --win nsis --publish never",
+    "release:tag": "electron-builder --win nsis --publish always"
   },
   "dependencies": {
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
-    "electron": "^36.2.1",
-    "electron-builder": "^24.13.3"
+    "electron": "^36.9.5",
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.kinowill.deepseekdesktopwrapper",
-    "productName": "DeepSeek Desktop Wrapper",
+    "productName": "DeepSeek Desktop",
+    "artifactName": "${productName} Setup ${version}.${ext}",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "src/**/*",
-      "build/**/*",
-      ".github/**/*",
+      "build/icon.png",
       "package.json",
       "README.md",
       "CHANGELOG.md"
     ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "kinowill",
+      "repo": "deepseek-desktop-wrapper",
+      "releaseType": "release"
+    },
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "DeepSeek Desktop",
+      "perMachine": false,
+      "runAfterFinish": true
     }
   }
 }
