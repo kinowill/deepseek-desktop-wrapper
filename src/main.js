@@ -1,3 +1,5 @@
+let isQuitting = false;
+
 const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, Notification, shell, safeStorage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
@@ -367,6 +369,66 @@ function showNotification(title, body) {
   notification.show();
 }
 
+function clearIpcHandlers() {
+  const channels = [
+    'state:get',
+    'state:save',
+    'profiles:list-models',
+    'chat:send',
+    'attachments:pick',
+    'chats:export',
+    'chats:import',
+    'logs:open-folder',
+    'app:meta',
+    'app:check-updates',
+    'app:download-update',
+    'app:install-update',
+    'window:action'
+  ];
+
+  for (const channel of channels) {
+    try {
+      ipcMain.removeHandler(channel);
+    } catch {
+      // ignore missing handlers
+    }
+  }
+}
+
+function cleanupAndQuit() {
+  if (isQuitting) return;
+  isQuitting = true;
+
+  try {
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+  } catch {
+    // ignore tray teardown failures
+  }
+
+  try {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+    }
+  } catch {
+    // ignore splash teardown failures
+  }
+  splashWindow = null;
+
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.destroy();
+    }
+  } catch {
+    // ignore window teardown failures
+  }
+  mainWindow = null;
+
+  app.quit();
+}
+
 function getRuntimeIcon() {
   return path.join(__dirname, 'assets', 'tray-icon.png');
 }
@@ -427,6 +489,10 @@ function createMainWindow() {
   mainWindow.removeMenu();
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
+  mainWindow.on('close', () => {
+    isQuitting = true;
+  });
+
   mainWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
     mainWindow.show();
@@ -454,6 +520,16 @@ function createMainWindow() {
 
 function createTray() {
   const icon = getRuntimeIcon();
+
+  try {
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+  } catch {
+    // ignore previous tray cleanup issues
+  }
+
   tray = new Tray(icon);
   tray.setToolTip('DeepSeek Desktop');
   const menu = Menu.buildFromTemplate([
@@ -461,7 +537,7 @@ function createTray() {
     { label: 'New chat', click: () => sendToRenderer('app:event', { type: 'tray-new-chat' }) },
     { label: 'Check updates', click: () => checkForUpdatesManually() },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() }
+    { label: 'Quit', click: () => cleanupAndQuit() }
   ]);
   tray.setContextMenu(menu);
   tray.on('click', () => showMainWindow());
@@ -843,9 +919,20 @@ function registerIpc() {
     if (!window) return false;
     if (action === 'minimize') window.minimize();
     if (action === 'toggle-maximize') window.isMaximized() ? window.unmaximize() : window.maximize();
-    if (action === 'close') window.close();
+    if (action === 'close') {
+      if (process.platform === 'darwin') {
+        window.close();
+      } else {
+        cleanupAndQuit();
+      }
+    }
     return true;
   });
+}
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
 }
 
 app.whenReady().then(() => {
@@ -872,17 +959,38 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+
+  try {
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+  } catch {
+    // ignore tray cleanup issues
+  }
+
+  try {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+    }
+  } catch {
+    // ignore splash cleanup issues
+  }
+  splashWindow = null;
+});
+
+app.on('will-quit', () => {
+  clearIpcHandlers();
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit();
+    cleanupAndQuit();
   }
 });
 
 app.on('second-instance', () => {
   showMainWindow();
 });
-
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-}
