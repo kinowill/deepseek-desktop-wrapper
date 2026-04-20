@@ -9,8 +9,7 @@
 > by the maintainer at the time of publishing. The installer is provided so
 > the GitHub release stays aligned with the `main` branch.
 >
-> Do not use this build as your daily driver. Stable channel users on
-> v0.5.0 are not auto-updated to this pre-release.
+> Do not use this build as your daily driver.
 
 ### Phase 1 (code shipped, runtime not validated)
 - introduced Tailwind CSS pipeline (CLI standalone, no bundler)
@@ -25,10 +24,4 @@
 ### Coming next
 - Phase 2: Markdown rendering with marked + highlight.js + KaTeX in messages
 - Phase 3: microinteractions, focus rings, skeletons, empty states
-- Phase 4: polish, version bump to 0.6.0 stable, release validation
-
-## 0.5.0
-- restored official DeepSeek wrapper mode
-- kept API mode with local chats and profiles
-- improved layout and mode switching
-- hardened wrapper session isolation
+- Phase 4: polish, version bump, release validation

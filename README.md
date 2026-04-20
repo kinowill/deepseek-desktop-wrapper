@@ -1,7 +1,7 @@
 # DeepSeek Desktop
 
-> Latest release: **v0.5.0**. Pre-release: **v0.6.0-alpha.1** (Phase 1 UX/UI
-> refonte). **No version of this app has been formally runtime-validated yet.**
+> Current pre-release: **v0.6.0-alpha.1** (Phase 1 UX/UI refonte).
+> **No version of this app has been formally runtime-validated yet.**
 > Install at your own risk. Auto-update only follows non-prerelease tags.
 
 Hybrid desktop app for DeepSeek with two modes:

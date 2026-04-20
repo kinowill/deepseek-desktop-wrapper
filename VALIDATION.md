@@ -1,16 +1,20 @@
 # Journal de validation
 
-## 2026-04-20 - Correction documentaire : pas de version "stable"
+## 2026-04-20 - Correction documentaire : ne pas mentionner d'anciennes versions
 
-Erreur signalee par l'utilisateur : j'avais qualifie la v0.5.0 de "stable"
-dans `README.md` et `ROADMAP.md`, ce qui est faux. Aucune version de l'app
-n'a ete validee en runtime a ce jour (cf. entrees ci-dessous).
+Erreurs signalees par l'utilisateur :
+1. J'avais qualifie une version anterieure de "stable" sans aucune base.
+2. Apres correction, l'utilisateur a demande de ne plus mentionner cette
+   version du tout dans la doc visible.
 
-Correction : `README.md` et `ROADMAP.md` reformules en "derniere version
-publiee" + mention explicite "no version formally runtime-validated yet".
+Corrections :
+- `README.md` : ne mentionne plus qu'une seule version, la pre-release courante.
+- `ROADMAP.md` : meme nettoyage.
+- `CHANGELOG.md` : section historique anterieure retiree.
 
 Lecon : ne pas inventer un statut de qualite (stable, valide, teste...)
-sans appui dans le journal de validation.
+sans appui dans le journal de validation. Et a la moindre demande,
+nettoyer agressivement la doc visible.
 
 ## 2026-04-20 - Pre-release v0.6.0-alpha.1 (Phase 1 UI, runtime non valide)
 

@@ -2,14 +2,12 @@
 
 ## Etat courant
 
-Derniere version publiee : **v0.5.0** (hybride wrapper officiel + mode API).
-Pre-release publiee : **v0.6.0-alpha.1** (Phase 1 UX/UI, NON validee runtime).
+Pre-release courante : **v0.6.0-alpha.1** (Phase 1 UX/UI, NON validee runtime).
 Chantier en cours : **refonte UX/UI premium** (Tailwind + Lucide + typo premium).
 
 **Aucune version de l'app n'a ete formellement validee en runtime a ce jour.**
-La v0.5.0 a ete publiee mais le test manuel reste a faire (cf. journal de
-validation). L'auto-update electron-updater suit uniquement les tags non
-prerelease ; les utilisateurs ne recoivent donc pas les `-alpha.x` par defaut.
+L'auto-update electron-updater suit uniquement les tags non prerelease ;
+les utilisateurs ne recoivent donc pas les `-alpha.x` par defaut.
 
 ## Chantier UX/UI premium
 
