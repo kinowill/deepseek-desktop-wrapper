@@ -47,6 +47,12 @@ const el = {
   importChatsBtn: document.getElementById('importChatsBtn'),
   checkUpdatesBtn: document.getElementById('checkUpdatesBtn'),
   openLogsBtn: document.getElementById('openLogsBtn'),
+  clearAllChatsBtn: document.getElementById('clearAllChatsBtn'),
+  preferencesBtn: document.getElementById('preferencesBtn'),
+  preferencesDialog: document.getElementById('preferencesDialog'),
+  preferencesCloseBtn: document.getElementById('preferencesCloseBtn'),
+  apiKeyBanner: document.getElementById('apiKeyBanner'),
+  apiKeyBannerBtn: document.getElementById('apiKeyBannerBtn'),
   tabsBar: document.getElementById('tabsBar'),
   offlineBanner: document.getElementById('offlineBanner'),
   toastBanner: document.getElementById('toastBanner'),
@@ -145,6 +151,15 @@ function showToast(message, isError = false) {
     el.toastBanner.classList.add('hidden');
     el.toastBanner.style.borderColor = '';
   }, 3200);
+}
+
+function isNearBottom(container, threshold = 40) {
+  if (!container) return true;
+  return (container.scrollHeight - container.clientHeight - container.scrollTop) <= threshold;
+}
+
+function scrollMessageListToBottom() {
+  el.messageList.scrollTop = el.messageList.scrollHeight;
 }
 
 function activeChat() {
@@ -289,6 +304,14 @@ function renderAll() {
   renderDesktopSettings();
   renderMeta();
   renderOnlineState();
+  renderApiKeyBanner();
+}
+
+function renderApiKeyBanner() {
+  if (!el.apiKeyBanner) return;
+  const missing = !appState.profiles.some((profile) => profile.hasApiKey);
+  el.apiKeyBanner.classList.toggle('hidden', !missing);
+  el.apiKeyBanner.classList.toggle('flex', missing);
 }
 
 function renderMode() {
@@ -359,17 +382,29 @@ function renderConversations() {
   el.conversationList.innerHTML = filtered.map((chat) => {
     const last = chat.messages[chat.messages.length - 1];
     const preview = last?.content?.slice(0, 80) || 'Empty';
+    const initial = (chat.title || '?').trim().charAt(0).toUpperCase() || '?';
+    const safeTitle = escapeHtml(chat.title);
     return `
-      <button class="conversation-card ${chat.id === appState.activeChatId ? 'active' : ''}" data-chat-id="${chat.id}">
-        <strong>${escapeHtml(chat.title)}</strong>
-        <small>${escapeHtml(preview)}</small>
-        <div class="meta">
-          <span>${escapeHtml(chat.model)}</span>
-          <span>${escapeHtml(formatDate(chat.updatedAt))}</span>
+      <div class="conversation-card ${chat.id === appState.activeChatId ? 'active' : ''}" data-chat-id="${chat.id}" role="button" tabindex="0" title="${safeTitle}">
+        <span class="conversation-avatar" aria-hidden="true">${escapeHtml(initial)}</span>
+        <div class="conversation-body">
+          <strong>${safeTitle}</strong>
+          <small>${escapeHtml(preview)}</small>
+          <div class="meta">
+            <span>${escapeHtml(chat.model)}</span>
+            <span>${escapeHtml(formatDate(chat.updatedAt))}</span>
+          </div>
         </div>
-      </button>
+        <div class="conversation-actions">
+          <button class="conversation-action" data-rename-chat="${chat.id}" title="Renommer" aria-label="Renommer la conversation">
+            <span data-icon="edit" class="icon-sm"></span>
+          </button>
+          <button class="conversation-action conversation-delete" data-delete-chat="${chat.id}" title="Supprimer" aria-label="Supprimer la conversation">×</button>
+        </div>
+      </div>
     `;
   }).join('') || '<div class="empty-state">No conversation matches your search.</div>';
+  if (window.Icons) window.Icons.render(el.conversationList);
 }
 
 function renderTabs() {
@@ -382,7 +417,12 @@ function renderTabs() {
       <span>${escapeHtml(chat.title)}</span>
       <button class="tab-close" data-close-tab="${chat.id}">×</button>
     </div>
-  `).join('');
+  `).join('') + `
+    <button class="tab-new" data-new-tab title="Nouvelle conversation" aria-label="Nouvelle conversation">
+      <span data-icon="plus" class="icon-sm"></span>
+    </button>
+  `;
+  if (window.Icons) window.Icons.render(el.tabsBar);
 }
 
 function modelsForChat(chat) {
@@ -394,13 +434,13 @@ function modelsForChat(chat) {
 function renderMessage(message, chat) {
   const canRetry = (message.status === 'pending' || message.status === 'error') && message.role === 'user' && chat.messages[chat.messages.length - 1]?.id === message.id;
   return `
-    <article class="message ${message.role} ${message.status === 'error' ? 'error' : ''} ${message.status === 'pending' ? 'pending' : ''}">
+    <article class="message ${message.role} ${message.status === 'error' ? 'error' : ''} ${message.status === 'pending' ? 'pending' : ''}" data-message-id="${message.id}">
       <div class="topline">
         <span>${escapeHtml(message.role)}${message.status !== 'sent' ? ` • ${escapeHtml(message.status)}` : ''}</span>
         <span>${escapeHtml(formatDate(message.createdAt))}</span>
       </div>
-      <div class="content">${escapeHtml(message.content || '')}</div>
-      ${message.reasoningContent ? `<div class="reasoning">${escapeHtml(message.reasoningContent)}</div>` : ''}
+      <div class="content" data-message-content>${escapeHtml(message.content || '')}</div>
+      ${message.reasoningContent ? `<div class="reasoning" data-message-reasoning>${escapeHtml(message.reasoningContent)}</div>` : ''}
       ${message.attachments?.length ? `<div class="attachment-list">${message.attachments.map((att) => `<span class="attachment-chip">${escapeHtml(att.name)}</span>`).join('')}</div>` : ''}
       ${message.error ? `<small>${escapeHtml(message.error)}</small>` : ''}
       ${canRetry ? `<div><button class="ghost small" data-retry-id="${message.id}">Retry send</button></div>` : ''}
@@ -408,9 +448,12 @@ function renderMessage(message, chat) {
   `;
 }
 
-function renderActiveChat() {
+function renderActiveChat(options = {}) {
+  const { scrollMode = 'bottom' } = options;
   const chat = activeChat();
   if (!chat) return;
+  const previousScrollTop = el.messageList.scrollTop;
+  const shouldStickToBottom = isNearBottom(el.messageList);
 
   el.chatTitleInput.value = chat.title;
   el.composer.value = chat.draft || '';
@@ -433,10 +476,61 @@ function renderActiveChat() {
   el.messageList.innerHTML = chat.messages.length
     ? chat.messages.map((message) => renderMessage(message, chat)).join('')
     : '<div class="empty-state">No messages yet. Local history, imports, and attachments are ready.</div>';
-  el.messageList.scrollTop = el.messageList.scrollHeight;
+  if (scrollMode === 'preserve') {
+    el.messageList.scrollTop = previousScrollTop;
+  } else if (scrollMode === 'stick') {
+    if (shouldStickToBottom) {
+      scrollMessageListToBottom();
+    } else {
+      el.messageList.scrollTop = previousScrollTop;
+    }
+  } else {
+    scrollMessageListToBottom();
+  }
 
   renderPendingAttachments();
   el.draftInfo.textContent = chat.updatedAt ? `Local state updated ${formatDate(chat.updatedAt)}` : 'Draft saved locally';
+}
+
+function syncStreamingMessage(chatId, messageId) {
+  if (appState.activeChatId !== chatId) return;
+
+  const chat = appState.chats.find((item) => item.id === chatId);
+  const message = chat?.messages.find((item) => item.id === messageId);
+  if (!chat || !message) return;
+
+  const messageNode = el.messageList.querySelector(`[data-message-id="${messageId}"]`);
+  if (!messageNode) {
+    renderActiveChat({ scrollMode: 'stick' });
+    return;
+  }
+
+  const shouldStickToBottom = isNearBottom(el.messageList);
+  const contentNode = messageNode.querySelector('[data-message-content]');
+  if (contentNode) {
+    contentNode.textContent = message.content || '';
+  }
+
+  let reasoningNode = messageNode.querySelector('[data-message-reasoning]');
+  if (message.reasoningContent) {
+    if (!reasoningNode) {
+      reasoningNode = document.createElement('div');
+      reasoningNode.className = 'reasoning';
+      reasoningNode.dataset.messageReasoning = 'true';
+      if (contentNode) {
+        contentNode.insertAdjacentElement('afterend', reasoningNode);
+      } else {
+        messageNode.append(reasoningNode);
+      }
+    }
+    reasoningNode.textContent = message.reasoningContent;
+  } else if (reasoningNode) {
+    reasoningNode.remove();
+  }
+
+  if (shouldStickToBottom) {
+    scrollMessageListToBottom();
+  }
 }
 
 function renderPendingAttachments() {
@@ -455,7 +549,13 @@ function renderProfiles() {
   el.profileNameInput.value = selectedProfile.name || '';
   el.profileBaseUrlInput.value = selectedProfile.baseUrl || 'https://api.deepseek.com';
   el.profileApiKeyInput.value = '';
-  el.profileApiKeyStatus.textContent = selectedProfile.hasApiKey ? 'Stored key present. Leave blank to keep it.' : 'No key stored.';
+  const hasKey = !!selectedProfile.hasApiKey;
+  el.profileApiKeyStatus.classList.toggle('api-key-status-ok', hasKey);
+  el.profileApiKeyStatus.classList.toggle('api-key-status-warn', !hasKey);
+  el.profileApiKeyStatus.innerHTML = hasKey
+    ? '<span data-icon="circle-check" class="icon-sm"></span>Clé enregistrée — laisser vide pour la conserver.'
+    : '<span data-icon="circle-alert" class="icon-sm"></span>Aucune clé configurée pour ce profil.';
+  if (window.Icons) window.Icons.render(el.profileApiKeyStatus);
   el.profileDefaultModelInput.value = selectedProfile.defaultModel || 'deepseek-chat';
   el.profileThinkingSelect.value = selectedProfile.thinkingType || 'auto';
   el.profileFormatSelect.value = selectedProfile.responseFormat || 'text';
@@ -474,18 +574,20 @@ function renderDesktopSettings() {
 }
 
 function renderMeta() {
-  const lines = [];
+  const rows = [];
   if (runtime.appMeta) {
-    lines.push(`Version: ${runtime.appMeta.version}`);
-    lines.push(`Packaged: ${runtime.appMeta.isPackaged ? 'yes' : 'no'}`);
-    lines.push(`Platform: ${runtime.appMeta.platform}`);
+    rows.push(['Version', runtime.appMeta.version]);
+    rows.push(['Packaged', runtime.appMeta.isPackaged ? 'Oui' : 'Non']);
+    rows.push(['Plateforme', runtime.appMeta.platform]);
   }
   if (appState.ui.lastUpdateCheckAt) {
-    lines.push(`Last update check: ${formatDate(appState.ui.lastUpdateCheckAt)}`);
+    rows.push(['Dernière vérif MAJ', formatDate(appState.ui.lastUpdateCheckAt)]);
   }
-  lines.push(`Profiles: ${appState.profiles.length}`);
-  lines.push(`Chats: ${appState.chats.length}`);
-  el.metaBox.textContent = lines.join('\n');
+  rows.push(['Profils', appState.profiles.length]);
+  rows.push(['Conversations', appState.chats.length]);
+  el.metaBox.innerHTML = rows.map(([k, v]) =>
+    `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`
+  ).join('');
 }
 
 function renderOnlineState() {
@@ -539,6 +641,61 @@ async function createNewChat() {
   await persistState(true);
 }
 
+function openPreferences() {
+  if (!el.preferencesDialog) return;
+  el.preferencesDialog.classList.remove('hidden');
+}
+
+function closePreferences() {
+  if (!el.preferencesDialog) return;
+  el.preferencesDialog.classList.add('hidden');
+}
+
+async function renameChat(chatId) {
+  if (!chatId) return;
+  const chat = appState.chats.find((item) => item.id === chatId);
+  if (!chat) return;
+  const next = window.prompt('Nouveau titre de la conversation :', chat.title);
+  if (next === null) return;
+  const trimmed = next.trim();
+  if (!trimmed || trimmed === chat.title) return;
+  chat.title = trimmed.slice(0, 120);
+  markUpdated(chat);
+  renderAll();
+  await persistState(true);
+}
+
+async function deleteChat(chatId) {
+  if (!chatId) return;
+  const chat = appState.chats.find((item) => item.id === chatId);
+  if (!chat) return;
+  if (!window.confirm(`Supprimer la conversation "${chat.title}" ?`)) return;
+  appState.chats = appState.chats.filter((item) => item.id !== chatId);
+  appState.openChatIds = appState.openChatIds.filter((id) => id !== chatId);
+  if (appState.activeChatId === chatId) {
+    appState.activeChatId = appState.openChatIds[0] || appState.chats[0]?.id || null;
+  }
+  if (!appState.chats.length) {
+    const fresh = createChat(appState.activeProfileId);
+    appState.chats.push(fresh);
+    appState.activeChatId = fresh.id;
+    ensureOpenChat(fresh.id);
+  }
+  renderAll();
+  await persistState(true);
+}
+
+async function deleteAllChats() {
+  if (!appState.chats.length) return;
+  if (!window.confirm(`Supprimer toutes les conversations (${appState.chats.length}) ? Action irréversible.`)) return;
+  const fresh = createChat(appState.activeProfileId);
+  appState.chats = [fresh];
+  appState.openChatIds = [fresh.id];
+  appState.activeChatId = fresh.id;
+  renderAll();
+  await persistState(true);
+}
+
 async function saveProfileFromForm() {
   const current = editorProfile();
   if (!current) return;
@@ -567,10 +724,17 @@ async function saveProfileFromForm() {
 
 async function deleteEditorProfile() {
   if (appState.profiles.length === 1) {
-    showToast('At least one profile is required.', true);
+    showToast('Au moins un profil est requis.', true);
     return;
   }
-  const id = runtime.selectedProfileEditorId;
+  const id = el.profileSelect.value || runtime.selectedProfileEditorId;
+  const target = appState.profiles.find((profile) => profile.id === id);
+  if (!target) {
+    showToast('Aucun profil sélectionné.', true);
+    return;
+  }
+  const confirmed = window.confirm(`Supprimer le profil « ${target.name} » ? Cette action est définitive.`);
+  if (!confirmed) return;
   appState.profiles = appState.profiles.filter((profile) => profile.id !== id);
   const fallback = appState.profiles[0];
   appState.activeProfileId = fallback.id;
@@ -645,7 +809,7 @@ async function sendMessage(retryMessageId = null) {
     userMessage.status = 'pending';
     userMessage.error = 'Offline';
     markUpdated(chat);
-    renderActiveChat();
+    renderActiveChat({ scrollMode: 'stick' });
     schedulePersist();
     showToast('Offline. Message stored locally as pending.', true);
     return;
@@ -666,7 +830,7 @@ async function sendMessage(retryMessageId = null) {
   if (chat.stream) {
     chat.messages.push(assistantMessage);
     runtime.currentStreaming.set(requestId, { chatId: chat.id, messageId: assistantMessage.id });
-    renderActiveChat();
+    renderActiveChat({ scrollMode: 'stick' });
   }
 
   try {
@@ -704,7 +868,7 @@ async function sendMessage(retryMessageId = null) {
     }
 
     markUpdated(chat);
-    renderActiveChat();
+    renderActiveChat({ scrollMode: 'stick' });
     renderConversations();
     schedulePersist();
     showToast(result.usage ? `Reply received • total tokens ${result.usage.total_tokens ?? '-'}` : 'Reply received.');
@@ -715,7 +879,7 @@ async function sendMessage(retryMessageId = null) {
     userMessage.status = 'error';
     userMessage.error = error.message || 'Request failed';
     markUpdated(chat);
-    renderActiveChat();
+    renderActiveChat({ scrollMode: 'stick' });
     schedulePersist();
     showToast(error.message || 'Send failed.', true);
   } finally {
@@ -815,8 +979,53 @@ function bindEvents() {
     if (!result.ok) showToast(result.reason || 'Update check unavailable.', true);
   });
   el.openLogsBtn.addEventListener('click', () => window.desktopAPI.openLogsFolder());
+  if (el.clearAllChatsBtn) el.clearAllChatsBtn.addEventListener('click', deleteAllChats);
+
+  if (el.apiKeyBannerBtn) {
+    el.apiKeyBannerBtn.addEventListener('click', async () => {
+      if (appState.ui.rightPanelCollapsed) {
+        appState.ui.rightPanelCollapsed = false;
+        renderAll();
+        await persistState();
+      }
+      setTimeout(() => {
+        if (!el.profileApiKeyInput) return;
+        el.profileApiKeyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.profileApiKeyInput.focus();
+        el.profileApiKeyInput.classList.remove('field-attention');
+        void el.profileApiKeyInput.offsetWidth;
+        el.profileApiKeyInput.classList.add('field-attention');
+        setTimeout(() => el.profileApiKeyInput.classList.remove('field-attention'), 3000);
+      }, 60);
+    });
+  }
+
+  if (el.preferencesBtn) el.preferencesBtn.addEventListener('click', openPreferences);
+  if (el.preferencesCloseBtn) el.preferencesCloseBtn.addEventListener('click', closePreferences);
+  if (el.preferencesDialog) {
+    el.preferencesDialog.addEventListener('click', (event) => {
+      if (event.target === el.preferencesDialog) closePreferences();
+    });
+  }
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && el.preferencesDialog && !el.preferencesDialog.classList.contains('hidden')) {
+      closePreferences();
+    }
+  });
 
   el.conversationList.addEventListener('click', (event) => {
+    const renameButton = event.target.closest('[data-rename-chat]');
+    if (renameButton) {
+      event.stopPropagation();
+      renameChat(renameButton.dataset.renameChat);
+      return;
+    }
+    const deleteButton = event.target.closest('[data-delete-chat]');
+    if (deleteButton) {
+      event.stopPropagation();
+      deleteChat(deleteButton.dataset.deleteChat);
+      return;
+    }
     const button = event.target.closest('[data-chat-id]');
     if (!button) return;
     ensureOpenChat(button.dataset.chatId);
@@ -825,6 +1034,10 @@ function bindEvents() {
   });
 
   el.tabsBar.addEventListener('click', (event) => {
+    if (event.target.closest('[data-new-tab]')) {
+      createNewChat();
+      return;
+    }
     const closeButton = event.target.closest('[data-close-tab]');
     if (closeButton) {
       event.stopPropagation();
@@ -1028,7 +1241,7 @@ function subscribeRuntimeEvents() {
     if (!chat || !message) return;
     message.content += payload.contentDelta || '';
     message.reasoningContent += payload.reasoningDelta || '';
-    renderActiveChat();
+    syncStreamingMessage(chat.id, message.id);
   });
 
   window.desktopAPI.onAppEvent((payload) => {

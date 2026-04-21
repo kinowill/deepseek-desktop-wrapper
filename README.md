@@ -1,8 +1,8 @@
 # DeepSeek Desktop
 
-> Current pre-release: **v0.6.0-alpha.1** (Phase 1 UX/UI refonte).
-> **No version of this app has been formally runtime-validated yet.**
-> Install at your own risk. Auto-update only follows non-prerelease tags.
+> Current release: **v1.0.0**
+> Hybrid Windows desktop app for DeepSeek: official wrapper + personal API workspace.
+> This release line includes the refreshed UI, streaming chat fix, and the new custom app icon.
 
 Hybrid desktop app for DeepSeek with two modes:
 - Official wrapper for `https://chat.deepseek.com/`

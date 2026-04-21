@@ -1,17 +1,28 @@
 # Changelog
 
-## 0.6.0-alpha.1 - PRE-RELEASE (NOT runtime validated)
+## 1.0.0 - First public V1 release
 
-> **Disclaimer / Avertissement**
->
-> This pre-release ships the Phase 1 of the UX/UI refonte (Tailwind, Lucide
-> icons, premium typography). The build has **not** been tested at runtime
-> by the maintainer at the time of publishing. The installer is provided so
-> the GitHub release stays aligned with the `main` branch.
->
-> Do not use this build as your daily driver.
+Hybrid wrapper + API desktop release line aligned for a proper GitHub setup.
+This version packages the refreshed UI, the streaming chat fix, and the
+new custom app, tray, and build icons into one clean Windows release target.
 
-### Phase 1 (code shipped, runtime not validated)
+### UI polish
+- sidebar collapsed mode centers icon-only actions and reduces conversation cards to avatar badges
+- tab bar adds a "+" action for browser-like new conversation creation
+- conversations support inline rename and delete actions
+- titlebar settings now open a dedicated Preferences dialog
+- API key banner guides the user to missing profile configuration
+- select options now render on a readable surface background
+- app window, Windows installer, and tray now use the new custom whale icon
+
+### Fixes
+- deleting a profile now removes the actual selected profile
+- API streaming chat no longer rerenders the full message list on every token
+- manual scrolling remains usable while a streamed reply is being generated
+
+## 0.6.0-alpha.1 - Pre-release (not runtime validated)
+
+### Phase 1
 - introduced Tailwind CSS pipeline (CLI standalone, no bundler)
 - vendored Inter Variable + JetBrains Mono fonts locally (CSP-safe)
 - replaced unicode emojis by inline Lucide SVG icons
@@ -19,9 +30,4 @@
 - added 3 themes (midnight, graphite, aurora) on RGB CSS variables
 - preserved `renderer.js` compatibility via legacy class shims in `src/input.css`
 - added `font-src 'self'` to Content-Security-Policy
-- release workflow: tags with `-` are now flagged as GitHub pre-release
-
-### Coming next
-- Phase 2: Markdown rendering with marked + highlight.js + KaTeX in messages
-- Phase 3: microinteractions, focus rings, skeletons, empty states
-- Phase 4: polish, version bump, release validation
+- release workflow marks tags containing `-` as GitHub pre-releases

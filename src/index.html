@@ -43,6 +43,9 @@
         </div>
 
         <div class="no-drag flex items-center gap-1">
+          <button class="btn-icon" id="preferencesBtn" title="Préférences" aria-label="Préférences">
+            <span data-icon="settings" class="icon-md"></span>
+          </button>
           <button class="btn-icon" id="minimizeBtn" aria-label="Minimize">
             <span data-icon="minus" class="icon-md"></span>
           </button>
@@ -85,7 +88,12 @@
           <div class="flex min-h-0 flex-1 flex-col gap-2">
             <div class="flex items-center justify-between px-1">
               <span class="section-title">Conversations</span>
-              <span class="kbd">Ctrl K</span>
+              <div class="flex items-center gap-1.5">
+                <button class="btn-icon !h-6 !w-6" id="clearAllChatsBtn" title="Tout supprimer" aria-label="Tout supprimer">
+                  <span data-icon="trash-2" class="icon-sm"></span>
+                </button>
+                <span class="kbd">Ctrl K</span>
+              </div>
             </div>
             <div class="flex min-h-0 flex-col gap-1.5 overflow-y-auto pr-1" id="conversationList"></div>
           </div>
@@ -93,16 +101,16 @@
           <div class="mt-auto flex flex-col gap-1.5 border-t border-line/40 pt-3">
             <span class="section-title px-1 pb-1">Actions rapides</span>
             <button class="btn-soft w-full justify-start" id="exportAllBtn">
-              <span data-icon="download" class="icon-md"></span>Exporter tout
+              <span data-icon="download" class="icon-md"></span><span>Exporter tout</span>
             </button>
             <button class="btn-soft w-full justify-start" id="importChatsBtn">
-              <span data-icon="upload" class="icon-md"></span>Importer des chats
+              <span data-icon="upload" class="icon-md"></span><span>Importer des chats</span>
             </button>
             <button class="btn-soft w-full justify-start" id="checkUpdatesBtn">
-              <span data-icon="refresh-cw" class="icon-md"></span>Mises à jour
+              <span data-icon="refresh-cw" class="icon-md"></span><span>Mises à jour</span>
             </button>
             <button class="btn-soft w-full justify-start" id="openLogsBtn">
-              <span data-icon="folder-open" class="icon-md"></span>Dossier logs
+              <span data-icon="folder-open" class="icon-md"></span><span>Dossier logs</span>
             </button>
           </div>
         </aside>
@@ -114,6 +122,15 @@
             <div class="glass flex min-h-[52px] items-center gap-2 overflow-x-auto rounded-xl p-2" id="tabsBar"></div>
 
             <div class="flex flex-col gap-2" id="bannerRow">
+              <div class="hidden items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning" id="apiKeyBanner">
+                <span class="flex items-center gap-2">
+                  <span data-icon="key-round" class="icon-sm"></span>
+                  Aucune clé API DeepSeek configurée. Ajoutez-la pour envoyer des messages.
+                </span>
+                <button class="btn-soft !py-1 text-xs" id="apiKeyBannerBtn" type="button">
+                  Configurer
+                </button>
+              </div>
               <div class="hidden rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning" id="offlineBanner">
                 Mode hors-ligne. Conversations disponibles localement. Les envois échoués restent en attente.
               </div>
@@ -255,7 +272,7 @@
                           <span data-icon="key-round" class="icon-sm"></span>Clé API
                         </span>
                         <input id="profileApiKeyInput" class="field font-mono text-xs" type="password" placeholder="Vide pour conserver la clé existante" />
-                        <small id="profileApiKeyStatus" class="text-xs text-ink-subtle">Aucune clé enregistrée.</small>
+                        <span id="profileApiKeyStatus" class="api-key-status api-key-status-warn"><span data-icon="circle-alert" class="icon-sm"></span>Aucune clé enregistrée.</span>
                       </label>
                       <label class="flex flex-col gap-1.5">
                         <span class="text-xs font-medium text-ink-muted">Modèle par défaut</span>
@@ -305,57 +322,6 @@
                     </div>
                   </section>
 
-                  <!-- Desktop card -->
-                  <section class="card">
-                    <div class="mb-3 flex items-center justify-between">
-                      <h3 class="m-0 flex items-center gap-2 text-sm font-semibold tracking-tight">
-                        <span data-icon="settings" class="icon-sm text-accent"></span>Application
-                      </h3>
-                      <span class="kbd">Ctrl ,</span>
-                    </div>
-                    <div class="flex flex-col gap-3">
-                      <div class="grid grid-cols-2 gap-2">
-                        <label class="flex flex-col gap-1.5">
-                          <span class="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
-                            <span data-icon="palette" class="icon-sm"></span>Thème
-                          </span>
-                          <select id="themeSelect" class="field">
-                            <option value="midnight">Midnight</option>
-                            <option value="graphite">Graphite</option>
-                            <option value="aurora">Aurora</option>
-                          </select>
-                        </label>
-                        <div class="flex flex-col gap-1.5">
-                          <span class="text-xs font-medium text-ink-muted">Build</span>
-                          <div id="metaBox" class="rounded-md border border-dashed border-line/60 bg-white/[0.02] px-2.5 py-2 font-mono text-[11px] text-ink-muted"></div>
-                        </div>
-                      </div>
-                      <label class="flex items-center justify-between gap-2 text-sm">
-                        <span class="flex items-center gap-2 text-ink"><span data-icon="bell" class="icon-sm text-ink-muted"></span>Notifications</span>
-                        <input id="notificationsToggle" type="checkbox" class="h-4 w-4 accent-accent" />
-                      </label>
-                      <label class="flex items-center justify-between gap-2 text-sm">
-                        <span class="flex items-center gap-2 text-ink"><span data-icon="rocket" class="icon-sm text-ink-muted"></span>Ouvrir au démarrage</span>
-                        <input id="autoLaunchToggle" type="checkbox" class="h-4 w-4 accent-accent" />
-                      </label>
-                      <label class="flex items-center justify-between gap-2 text-sm">
-                        <span class="flex items-center gap-2 text-ink"><span data-icon="refresh-cw" class="icon-sm text-ink-muted"></span>Mise à jour auto</span>
-                        <input id="autoUpdateToggle" type="checkbox" class="h-4 w-4 accent-accent" />
-                      </label>
-                      <label class="flex items-center justify-between gap-2 text-sm">
-                        <span class="flex items-center gap-2 text-ink"><span data-icon="logs" class="icon-sm text-ink-muted"></span>Journalisation</span>
-                        <input id="loggingToggle" type="checkbox" class="h-4 w-4 accent-accent" />
-                      </label>
-                      <div class="flex flex-wrap gap-2">
-                        <button class="btn-ghost flex-1" id="downloadUpdateBtn">
-                          <span data-icon="download" class="icon-sm"></span>Télécharger MAJ
-                        </button>
-                        <button class="btn-ghost flex-1" id="installUpdateBtn">
-                          <span data-icon="check" class="icon-sm"></span>Installer MAJ
-                        </button>
-                      </div>
-                    </div>
-                  </section>
                 </div>
               </aside>
             </div>
@@ -393,6 +359,77 @@
             </div>
           </section>
         </main>
+      </div>
+    </div>
+
+    <!-- ============== PREFERENCES DIALOG ============== -->
+    <div class="dialog-backdrop hidden" id="preferencesDialog" role="dialog" aria-modal="true" aria-labelledby="preferencesTitle">
+      <div class="dialog-panel glass flex max-h-[80vh] w-[min(560px,92vw)] flex-col gap-4 rounded-2xl p-5">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="m-0 flex items-center gap-2 text-lg font-semibold tracking-tight" id="preferencesTitle">
+            <span data-icon="settings" class="icon-md text-accent"></span>Préférences
+          </h2>
+          <button class="btn-icon" id="preferencesCloseBtn" title="Fermer" aria-label="Fermer">
+            <span data-icon="x" class="icon-md"></span>
+          </button>
+        </div>
+        <div class="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+          <!-- About card -->
+          <section class="card">
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="m-0 flex items-center gap-2 text-sm font-semibold tracking-tight">
+                <span data-icon="info" class="icon-sm text-accent"></span>À propos
+              </h3>
+            </div>
+            <dl id="metaBox" class="meta-grid"></dl>
+          </section>
+
+          <!-- Application card -->
+          <section class="card">
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="m-0 flex items-center gap-2 text-sm font-semibold tracking-tight">
+                <span data-icon="settings" class="icon-sm text-accent"></span>Application
+              </h3>
+              <span class="kbd">Ctrl ,</span>
+            </div>
+            <div class="flex flex-col gap-3">
+              <label class="flex flex-col gap-1.5">
+                <span class="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                  <span data-icon="palette" class="icon-sm"></span>Thème
+                </span>
+                <select id="themeSelect" class="field">
+                  <option value="midnight">Midnight</option>
+                  <option value="graphite">Graphite</option>
+                  <option value="aurora">Aurora</option>
+                </select>
+              </label>
+              <label class="flex items-center justify-between gap-2 text-sm">
+                <span class="flex items-center gap-2 text-ink"><span data-icon="bell" class="icon-sm text-ink-muted"></span>Notifications</span>
+                <input id="notificationsToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+              </label>
+              <label class="flex items-center justify-between gap-2 text-sm">
+                <span class="flex items-center gap-2 text-ink"><span data-icon="rocket" class="icon-sm text-ink-muted"></span>Ouvrir au démarrage</span>
+                <input id="autoLaunchToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+              </label>
+              <label class="flex items-center justify-between gap-2 text-sm">
+                <span class="flex items-center gap-2 text-ink"><span data-icon="refresh-cw" class="icon-sm text-ink-muted"></span>Mise à jour auto</span>
+                <input id="autoUpdateToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+              </label>
+              <label class="flex items-center justify-between gap-2 text-sm">
+                <span class="flex items-center gap-2 text-ink"><span data-icon="logs" class="icon-sm text-ink-muted"></span>Journalisation</span>
+                <input id="loggingToggle" type="checkbox" class="h-4 w-4 accent-accent" />
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <button class="btn-ghost flex-1" id="downloadUpdateBtn">
+                  <span data-icon="download" class="icon-sm"></span>Télécharger MAJ
+                </button>
+                <button class="btn-ghost flex-1" id="installUpdateBtn">
+                  <span data-icon="check" class="icon-sm"></span>Installer MAJ
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
 

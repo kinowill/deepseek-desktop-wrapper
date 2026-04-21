@@ -133,6 +133,25 @@
   textarea.field { @apply min-h-[88px] resize-y leading-relaxed; }
   select.field { @apply pr-8 appearance-none bg-no-repeat bg-[length:14px] bg-[position:right_10px_center];
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgb(154,170,197)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"); }
+  select.field option,
+  select option {
+    background-color: rgb(var(--surface-raised));
+    color: rgb(var(--ink));
+  }
+
+  .api-key-status { @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium; }
+  .api-key-status-ok { @apply border border-success/30 bg-success/10 text-success; }
+  .api-key-status-warn { @apply border border-warning/40 bg-warning/10 text-warning; }
+
+  @keyframes fieldAttention {
+    0%   { box-shadow: 0 0 0 0 rgb(var(--accent) / 0.55); border-color: rgb(var(--accent) / 0.9); }
+    40%  { box-shadow: 0 0 0 6px rgb(var(--accent) / 0.18); border-color: rgb(var(--accent) / 0.9); }
+    100% { box-shadow: 0 0 0 0 rgb(var(--accent) / 0); border-color: rgb(var(--line) / 0.7); }
+  }
+  .field-attention {
+    animation: fieldAttention 1.4s ease-in-out 2;
+    border-color: rgb(var(--accent) / 0.9) !important;
+  }
 
   .pill { @apply inline-flex items-center gap-1.5 rounded-full border border-line/70 bg-white/[0.03] px-2.5 py-1 text-xs text-ink-muted; }
   .pill-success { @apply border-success/30 text-success bg-success/10; }
@@ -142,6 +161,20 @@
 
   .eyebrow { @apply text-2xs font-semibold uppercase tracking-[0.14em] text-ink-subtle; }
   .section-title { @apply text-2xs font-semibold uppercase tracking-[0.14em] text-ink-subtle; }
+
+  /* Meta grid (About card) */
+  .meta-grid { @apply grid gap-x-3 gap-y-1.5 text-xs; grid-template-columns: auto 1fr; }
+  .meta-grid dt { @apply text-ink-subtle; }
+  .meta-grid dd { @apply m-0 truncate text-right font-mono text-ink; }
+
+  /* Dialog (Preferences modal) */
+  .dialog-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-6;
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(6px);
+    animation: fade-in 140ms ease-out;
+  }
+  .dialog-panel { animation: slide-up 180ms cubic-bezier(.2,.8,.2,1); }
   .kbd { @apply inline-flex items-center rounded border border-line/70 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono text-ink-muted; }
 
   .card { @apply rounded-xl border border-line/70 bg-white/[0.02] p-4; }
@@ -159,14 +192,32 @@
 
   /* Conversation cards (rendered by renderer.js) */
   .conversation-card {
-    @apply grid gap-1 rounded-lg border border-transparent px-3 py-2.5 text-left text-ink transition-colors;
+    @apply flex cursor-pointer items-start gap-2 rounded-lg border border-transparent px-3 py-2.5 text-left text-ink transition-colors;
     background: rgb(255 255 255 / 0.025);
   }
   .conversation-card:hover { @apply border-line/60; background: rgb(255 255 255 / 0.045); }
   .conversation-card.active { @apply border-accent/30 shadow-glow; background: rgb(var(--accent) / 0.08); }
+  .conversation-avatar {
+    @apply inline-grid h-8 w-8 flex-shrink-0 place-items-center rounded-full text-xs font-semibold uppercase text-ink;
+    background: rgb(255 255 255 / 0.06);
+  }
+  .conversation-card.active .conversation-avatar {
+    background: rgb(var(--accent) / 0.25);
+    color: rgb(var(--accent-ink));
+  }
+  .conversation-body { @apply grid min-w-0 flex-1 gap-1; }
   .conversation-card strong { @apply truncate text-sm font-semibold text-ink; }
   .conversation-card small { @apply truncate text-xs text-ink-muted; }
   .conversation-card .meta { @apply mt-0.5 flex justify-between gap-2 text-[10px] text-ink-subtle; }
+  .conversation-actions { @apply flex flex-shrink-0 items-center gap-1; }
+  .conversation-action {
+    @apply inline-grid h-5 w-5 place-items-center rounded-full border border-transparent text-sm leading-none text-ink-subtle opacity-0 transition-all;
+    background: rgb(255 255 255 / 0.04);
+  }
+  .conversation-card:hover .conversation-action,
+  .conversation-card:focus-within .conversation-action { @apply opacity-100; }
+  .conversation-action:hover { @apply border-accent/30 text-ink opacity-100; background: rgb(var(--accent) / 0.12); }
+  .conversation-delete:hover { @apply !border-danger/30 !text-danger; background: rgb(var(--danger) / 0.12) !important; }
 
   /* Tabs bar */
   .tab {
@@ -180,6 +231,11 @@
     background: rgb(255 255 255 / 0.06);
   }
   .tab-close:hover { @apply border-danger/30 text-danger; background: rgb(var(--danger) / 0.12); }
+  .tab-new {
+    @apply inline-grid h-8 w-8 flex-shrink-0 place-items-center rounded-md border border-transparent text-ink-muted transition-colors;
+    background: rgb(255 255 255 / 0.02);
+  }
+  .tab-new:hover { @apply border-accent/30 text-ink; background: rgb(var(--accent) / 0.10); }
 
   /* Messages */
   .message {
@@ -224,27 +280,41 @@
 
   /* Sidebar collapsed (renderer.js toggles `sidebar-collapsed` on appShell) */
   #appShell.sidebar-collapsed { grid-template-columns: 76px 1fr !important; }
-  #appShell.sidebar-collapsed .sidebar #chatSearch,
-  #appShell.sidebar-collapsed .sidebar .card,
-  #appShell.sidebar-collapsed .sidebar .section-title,
-  #appShell.sidebar-collapsed .sidebar .kbd,
-  #appShell.sidebar-collapsed .sidebar .conversation-card strong,
-  #appShell.sidebar-collapsed .sidebar .conversation-card small,
-  #appShell.sidebar-collapsed .sidebar .conversation-card .meta,
-  #appShell.sidebar-collapsed .sidebar .btn-soft span:last-child,
-  #appShell.sidebar-collapsed .sidebar .btn-primary span:last-child { display: none; }
-  #appShell.sidebar-collapsed .sidebar .btn-soft,
-  #appShell.sidebar-collapsed .sidebar .btn-primary { @apply !justify-center !px-2; }
-  #appShell.sidebar-collapsed .conversation-card { @apply place-items-center px-2 py-2; }
-  #appShell.sidebar-collapsed .conversation-card::before { content: '•'; color: rgb(var(--accent)); font-size: 18px; line-height: 0; }
+  /* Hide text, kbd hints, card blocks, search wrapper, clear-all button */
+  #appShell.sidebar-collapsed #sidebar .card,
+  #appShell.sidebar-collapsed #sidebar .section-title,
+  #appShell.sidebar-collapsed #sidebar .kbd,
+  #appShell.sidebar-collapsed #sidebar #clearAllChatsBtn,
+  #appShell.sidebar-collapsed #sidebar > div:first-child > .relative,
+  #appShell.sidebar-collapsed #sidebar .btn-soft span:last-child,
+  #appShell.sidebar-collapsed #sidebar .btn-primary span:last-child { display: none; }
+  /* Compact square buttons (icon-only, centered) instead of full-width pills */
+  #appShell.sidebar-collapsed #sidebar .btn-soft,
+  #appShell.sidebar-collapsed #sidebar .btn-primary {
+    @apply !w-10 !h-10 !p-0 !justify-center !mx-auto;
+  }
+  /* Conversation cards become compact round avatars */
+  #appShell.sidebar-collapsed #sidebar .conversation-card {
+    @apply !justify-center !p-0 !border-transparent !bg-transparent;
+  }
+  #appShell.sidebar-collapsed #sidebar .conversation-card.active {
+    @apply !shadow-none;
+  }
+  #appShell.sidebar-collapsed #sidebar .conversation-body,
+  #appShell.sidebar-collapsed #sidebar .conversation-actions { display: none; }
+  #appShell.sidebar-collapsed #sidebar .conversation-avatar {
+    @apply !h-10 !w-10 text-sm;
+  }
+  #appShell.sidebar-collapsed #sidebar .conversation-card.active .conversation-avatar {
+    box-shadow: 0 0 0 2px rgb(var(--accent) / 0.6);
+  }
 
   /* Right panel collapsed */
   #apiWorkspace.collapsed-right #workspaceGrid { grid-template-columns: minmax(0, 1fr) 64px !important; }
-  #apiWorkspace.collapsed-right #rightPanel { @apply px-2; }
+  #apiWorkspace.collapsed-right #rightPanel { @apply !p-3; }
   #apiWorkspace.collapsed-right #settingsScroll,
-  #apiWorkspace.collapsed-right #rightPanel .panel-header h2,
-  #apiWorkspace.collapsed-right #rightPanel .eyebrow,
   #apiWorkspace.collapsed-right #rightPanel > div:first-child > div:first-child { display: none; }
+  #apiWorkspace.collapsed-right #rightPanel > div:first-child { @apply !justify-center; }
 }
 
 @layer utilities {
