@@ -20,6 +20,10 @@ new custom app, tray, and build icons into one clean Windows release target.
 - API streaming chat no longer rerenders the full message list on every token
 - manual scrolling remains usable while a streamed reply is being generated
 
+### Docs
+- README now explains where local profiles, API keys, logs, and wrapper session data are stored on Windows
+- README now warns that uninstall alone does not guarantee deletion of the app's local data folder
+
 ## 0.6.0-alpha.1 - Pre-release (not runtime validated)
 
 ### Phase 1
