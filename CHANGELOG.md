@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 - i18n english primary + french switch
+
+### Internationalization
+- app UI now defaults to English and exposes a live French switch in Preferences
+- static interface copy is centralized through `src/i18n.js` and `data-i18n` bindings
+- dynamic renderer strings now follow the active UI language for toasts, confirmations, generated chat titles, metadata, wrapper states, and update states
+- main-process UI now follows the active language for the tray menu, update notifications, file dialogs, attachment notes, and key IPC error messages
+
+### Release hygiene
+- packaging metadata bumped to `1.2.0` to separate the i18n release line from the prior `1.1.0` DeepSeek V4 awareness build
+
 ## 1.1.0 - DeepSeek V4 awareness
 
 ### DeepSeek V4 awareness

@@ -17,6 +17,7 @@ const ALLOWED_RESPONSE_FORMATS = new Set(['text', 'json_object']);
 const ALLOWED_THINKING = new Set(['auto', 'enabled', 'disabled']);
 const ALLOWED_THEMES = new Set(['midnight', 'graphite', 'aurora']);
 const ALLOWED_MODES = new Set(['api', 'wrapper']);
+const ALLOWED_LANGUAGES = new Set(['en', 'fr']);
 const WRAPPER_HOME_URL = 'https://chat.deepseek.com/';
 const WRAPPER_PARTITION = 'persist:deepseek-official';
 const WRAPPER_ALLOWED_HOST_SUFFIXES = ['deepseek.com'];
@@ -31,6 +32,74 @@ let splashWindow = null;
 let tray = null;
 let internalState = null;
 let updateDownloadedInfo = null;
+
+const MAIN_I18N = {
+  en: {
+    'tray.showApp': 'Show app',
+    'tray.newChat': 'New chat',
+    'tray.checkUpdates': 'Check updates',
+    'tray.quit': 'Quit',
+    'notification.updateAvailableTitle': 'Update available',
+    'notification.updateAvailableBody': 'Version {version} is ready to download.',
+    'notification.updateDownloadedTitle': 'Update downloaded',
+    'notification.updateDownloadedBody': 'Restart the app to install the new version.',
+    'errors.updateGeneric': 'Update error.',
+    'errors.autoUpdateDisabled': 'Auto update disabled or app not packaged.',
+    'errors.appNotPackaged': 'App is not packaged.',
+    'errors.noDownloadedUpdate': 'No downloaded update.',
+    'errors.missingApiKey': 'Missing API key for this profile.',
+    'errors.modelListFailed': 'Model list failed ({status})',
+    'errors.deepseekError': 'DeepSeek error {status}: {message}',
+    'errors.textDecodeFailed': 'Text file could not be decoded with UTF-8.',
+    'errors.binaryImported': 'Binary file metadata imported. Content is not embedded automatically.',
+    'export.defaultFilename': 'deepseek-chats-export.json',
+    'import.importedTitle': 'Imported conversation',
+    'import.importedSuffix': '(imported)',
+    'dialog.pickAttachmentsTitle': 'Select attachments',
+    'dialog.exportTitle': 'Export conversations',
+    'dialog.importTitle': 'Import conversations',
+    'dialog.filterAllFiles': 'All files',
+    'dialog.filterTextAndCode': 'Text and code',
+    'dialog.filterJson': 'JSON'
+  },
+  fr: {
+    'tray.showApp': 'Afficher l\'app',
+    'tray.newChat': 'Nouveau chat',
+    'tray.checkUpdates': 'Vérifier les mises à jour',
+    'tray.quit': 'Quitter',
+    'notification.updateAvailableTitle': 'Mise à jour disponible',
+    'notification.updateAvailableBody': 'La version {version} est prête à être téléchargée.',
+    'notification.updateDownloadedTitle': 'Mise à jour téléchargée',
+    'notification.updateDownloadedBody': 'Redémarrez l\'app pour installer la nouvelle version.',
+    'errors.updateGeneric': 'Erreur de mise à jour.',
+    'errors.autoUpdateDisabled': 'Mise à jour auto désactivée ou application non packagée.',
+    'errors.appNotPackaged': 'L\'application n\'est pas packagée.',
+    'errors.noDownloadedUpdate': 'Aucune mise à jour téléchargée.',
+    'errors.missingApiKey': 'Clé API manquante pour ce profil.',
+    'errors.modelListFailed': 'Échec de la liste des modèles ({status})',
+    'errors.deepseekError': 'Erreur DeepSeek {status} : {message}',
+    'errors.textDecodeFailed': 'Le fichier texte n\'a pas pu être décodé en UTF-8.',
+    'errors.binaryImported': 'Les métadonnées du fichier binaire ont été importées. Le contenu n\'est pas intégré automatiquement.',
+    'export.defaultFilename': 'deepseek-chats-export.json',
+    'import.importedTitle': 'Conversation importée',
+    'import.importedSuffix': '(importée)',
+    'dialog.pickAttachmentsTitle': 'Sélectionner des pièces jointes',
+    'dialog.exportTitle': 'Exporter les conversations',
+    'dialog.importTitle': 'Importer des conversations',
+    'dialog.filterAllFiles': 'Tous les fichiers',
+    'dialog.filterTextAndCode': 'Texte et code',
+    'dialog.filterJson': 'JSON'
+  }
+};
+
+function currentLanguage() {
+  return ALLOWED_LANGUAGES.has(internalState?.ui?.language) ? internalState.ui.language : 'en';
+}
+
+function mt(key, fallback = key, vars = {}) {
+  const template = MAIN_I18N[currentLanguage()]?.[key] ?? MAIN_I18N.en[key] ?? fallback;
+  return String(template).replace(/\{(\w+)\}/g, (_match, name) => String(vars[name] ?? ''));
+}
 
 function uid(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -157,7 +226,8 @@ function defaultState() {
       currentMode: 'api',
       wrapperUrl: WRAPPER_HOME_URL,
       lastUpdateCheckAt: null,
-      legacyModelBannerDismissed: false
+      legacyModelBannerDismissed: false,
+      language: 'en'
     }
   };
 }
@@ -260,7 +330,9 @@ function normalizePrivateState(raw = {}) {
     rightPanelCollapsed: Boolean(raw.ui?.rightPanelCollapsed),
     currentMode: ALLOWED_MODES.has(raw.ui?.currentMode) ? raw.ui.currentMode : 'api',
     wrapperUrl: sanitizeWrapperUrl(raw.ui?.wrapperUrl),
-    lastUpdateCheckAt: raw.ui?.lastUpdateCheckAt || null
+    lastUpdateCheckAt: raw.ui?.lastUpdateCheckAt || null,
+    legacyModelBannerDismissed: Boolean(raw.ui?.legacyModelBannerDismissed),
+    language: ALLOWED_LANGUAGES.has(raw.ui?.language) ? raw.ui.language : 'en'
   };
 
   return {
@@ -307,6 +379,7 @@ function saveState(nextState) {
   fs.mkdirSync(path.dirname(APP_STATE_PATH), { recursive: true });
   fs.writeFileSync(APP_STATE_PATH, JSON.stringify(internalState, null, 2), 'utf8');
   applyDesktopPreferences(internalState);
+  refreshTrayMenu();
   return internalState;
 }
 
@@ -368,7 +441,8 @@ function sanitizeIncomingState(payload = {}, current = readState()) {
       currentMode: ALLOWED_MODES.has(payload.ui?.currentMode) ? payload.ui.currentMode : current.ui.currentMode,
       wrapperUrl: sanitizeWrapperUrl(payload.ui?.wrapperUrl || current.ui.wrapperUrl),
       lastUpdateCheckAt: payload.ui?.lastUpdateCheckAt || current.ui.lastUpdateCheckAt || null,
-      legacyModelBannerDismissed: Boolean(payload.ui?.legacyModelBannerDismissed ?? current.ui.legacyModelBannerDismissed)
+      legacyModelBannerDismissed: Boolean(payload.ui?.legacyModelBannerDismissed ?? current.ui.legacyModelBannerDismissed),
+      language: ALLOWED_LANGUAGES.has(payload.ui?.language) ? payload.ui.language : current.ui.language
     }
   };
 }
@@ -610,15 +684,20 @@ function createTray() {
 
   tray = new Tray(icon);
   tray.setToolTip('DeepSeek Desktop');
+  refreshTrayMenu();
+  tray.on('click', () => showMainWindow());
+}
+
+function refreshTrayMenu() {
+  if (!tray) return;
   const menu = Menu.buildFromTemplate([
-    { label: 'Show app', click: () => showMainWindow() },
-    { label: 'New chat', click: () => sendToRenderer('app:event', { type: 'tray-new-chat' }) },
-    { label: 'Check updates', click: () => checkForUpdatesManually() },
+    { label: mt('tray.showApp', 'Show app'), click: () => showMainWindow() },
+    { label: mt('tray.newChat', 'New chat'), click: () => sendToRenderer('app:event', { type: 'tray-new-chat' }) },
+    { label: mt('tray.checkUpdates', 'Check updates'), click: () => checkForUpdatesManually() },
     { type: 'separator' },
-    { label: 'Quit', click: () => cleanupAndQuit() }
+    { label: mt('tray.quit', 'Quit'), click: () => cleanupAndQuit() }
   ]);
   tray.setContextMenu(menu);
-  tray.on('click', () => showMainWindow());
 }
 
 function showMainWindow() {
@@ -648,7 +727,10 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     appendLog('info', 'Update available', { version: info?.version });
     sendToRenderer('app:event', { type: 'update-status', status: 'available', info });
-    showNotification('Update available', `Version ${info?.version || 'new'} is ready to download.`);
+    showNotification(
+      mt('notification.updateAvailableTitle', 'Update available'),
+      mt('notification.updateAvailableBody', 'Version {version} is ready to download.', { version: info?.version || 'new' })
+    );
   });
 
   autoUpdater.on('update-not-available', (info) => {
@@ -658,7 +740,7 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (error) => {
     appendLog('error', 'Auto update error', { message: error?.message });
-    sendToRenderer('app:event', { type: 'update-status', status: 'error', message: error?.message || 'Update error' });
+    sendToRenderer('app:event', { type: 'update-status', status: 'error', message: error?.message || mt('errors.updateGeneric', 'Update error.') });
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -669,7 +751,10 @@ function setupAutoUpdater() {
     updateDownloadedInfo = info;
     appendLog('info', 'Update downloaded', { version: info?.version });
     sendToRenderer('app:event', { type: 'update-status', status: 'downloaded', info });
-    showNotification('Update downloaded', 'Restart the app to install the new version.');
+    showNotification(
+      mt('notification.updateDownloadedTitle', 'Update downloaded'),
+      mt('notification.updateDownloadedBody', 'Restart the app to install the new version.')
+    );
   });
 }
 
@@ -677,7 +762,7 @@ async function checkForUpdatesManually() {
   const state = readState();
   if (!app.isPackaged || !state.ui.autoUpdateEnabled) {
     sendToRenderer('app:event', { type: 'update-status', status: 'disabled' });
-    return { ok: false, reason: 'Auto update disabled or app not packaged.' };
+    return { ok: false, reason: mt('errors.autoUpdateDisabled', 'Auto update disabled or app not packaged.') };
   }
   const result = await autoUpdater.checkForUpdates();
   const nextState = {
@@ -727,7 +812,7 @@ function buildMessagesForApi(messages = []) {
 async function fetchModelsForProfile(profileId) {
   const profile = getProfileById(profileId);
   const apiKey = getApiKeyForProfile(profile.id);
-  if (!apiKey) throw new Error('Missing API key for this profile.');
+  if (!apiKey) throw new Error(mt('errors.missingApiKey', 'Missing API key for this profile.'));
   const response = await fetch(`${sanitizeBaseUrl(profile.baseUrl)}/models`, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -735,7 +820,7 @@ async function fetchModelsForProfile(profileId) {
     }
   });
   if (!response.ok) {
-    throw new Error(`Model list failed (${response.status})`);
+    throw new Error(mt('errors.modelListFailed', 'Model list failed ({status})', { status: response.status }));
   }
   const data = await response.json();
   return Array.isArray(data?.data) ? data.data.map((item) => ({ id: item.id, ownedBy: item.owned_by })) : [];
@@ -744,7 +829,7 @@ async function fetchModelsForProfile(profileId) {
 async function executeChatRequest(event, payload = {}) {
   const profile = getProfileById(payload.profileId);
   const apiKey = getApiKeyForProfile(profile.id);
-  if (!apiKey) throw new Error('Missing API key for this profile.');
+  if (!apiKey) throw new Error(mt('errors.missingApiKey', 'Missing API key for this profile.'));
 
   const model = sanitizeText(payload.model || profile.defaultModel || 'deepseek-chat', 120) || 'deepseek-chat';
   const messages = Array.isArray(payload.messages) ? payload.messages : [];
@@ -786,7 +871,10 @@ async function executeChatRequest(event, payload = {}) {
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(`DeepSeek error ${response.status}: ${sanitizeText(message, 600)}`);
+    throw new Error(mt('errors.deepseekError', 'DeepSeek error {status}: {message}', {
+      status: response.status,
+      message: sanitizeText(message, 600)
+    }));
   }
 
   if (!stream) {
@@ -859,10 +947,11 @@ async function executeChatRequest(event, payload = {}) {
 
 async function pickAttachments() {
   const result = await dialog.showOpenDialog(mainWindow, {
+    title: mt('dialog.pickAttachmentsTitle', 'Select attachments'),
     properties: ['openFile', 'multiSelections'],
     filters: [
-      { name: 'All files', extensions: ['*'] },
-      { name: 'Text and code', extensions: ['txt', 'md', 'json', 'js', 'ts', 'tsx', 'jsx', 'html', 'css', 'py', 'yml', 'yaml', 'csv', 'sql', 'log'] }
+      { name: mt('dialog.filterAllFiles', 'All files'), extensions: ['*'] },
+      { name: mt('dialog.filterTextAndCode', 'Text and code'), extensions: ['txt', 'md', 'json', 'js', 'ts', 'tsx', 'jsx', 'html', 'css', 'py', 'yml', 'yaml', 'csv', 'sql', 'log'] }
     ]
   });
 
@@ -887,11 +976,11 @@ async function pickAttachments() {
         attachment.textExcerpt = fs.readFileSync(filePath, 'utf8').slice(0, MAX_ATTACHMENT_TEXT);
       } catch {
         attachment.textExcerpt = '';
-        attachment.note = 'Text file could not be decoded with UTF-8.';
+        attachment.note = mt('errors.textDecodeFailed', 'Text file could not be decoded with UTF-8.');
       }
     } else {
       attachment.textExcerpt = '';
-      attachment.note = 'Binary file metadata imported. Content is not embedded automatically.';
+      attachment.note = mt('errors.binaryImported', 'Binary file metadata imported. Content is not embedded automatically.');
     }
 
     return sanitizeAttachment(attachment);
@@ -901,8 +990,9 @@ async function pickAttachments() {
 async function exportChats(payload = {}) {
   const chats = Array.isArray(payload.chats) ? payload.chats.map((chat) => sanitizeStoredChat(chat, null, readState().profiles)) : [];
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: 'deepseek-chats-export.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }]
+    title: mt('dialog.exportTitle', 'Export conversations'),
+    defaultPath: mt('export.defaultFilename', 'deepseek-chats-export.json'),
+    filters: [{ name: mt('dialog.filterJson', 'JSON'), extensions: ['json'] }]
   });
   if (result.canceled || !result.filePath) return { canceled: true };
 
@@ -918,8 +1008,9 @@ async function exportChats(payload = {}) {
 
 async function importChats() {
   const result = await dialog.showOpenDialog(mainWindow, {
+    title: mt('dialog.importTitle', 'Import conversations'),
     properties: ['openFile'],
-    filters: [{ name: 'JSON', extensions: ['json'] }]
+    filters: [{ name: mt('dialog.filterJson', 'JSON'), extensions: ['json'] }]
   });
   if (result.canceled || !result.filePaths.length) return { canceled: true, chats: [] };
 
@@ -929,7 +1020,7 @@ async function importChats() {
   const chats = sourceChats.slice(0, MAX_CHATS).map((chat) => sanitizeStoredChat({
     ...chat,
     id: uid('chat'),
-    title: `${sanitizeText(chat.title, 120) || 'Imported conversation'} (imported)`
+    title: `${sanitizeText(chat.title, 120) || mt('import.importedTitle', 'Imported conversation')} ${mt('import.importedSuffix', '(imported)')}`
   }, null, profiles));
 
   return { canceled: false, chats };
@@ -983,12 +1074,12 @@ function registerIpc() {
   }));
   ipcMain.handle('app:check-updates', () => checkForUpdatesManually());
   ipcMain.handle('app:download-update', async () => {
-    if (!app.isPackaged) return { ok: false, reason: 'App is not packaged.' };
+    if (!app.isPackaged) return { ok: false, reason: mt('errors.appNotPackaged', 'App is not packaged.') };
     await autoUpdater.downloadUpdate();
     return { ok: true };
   });
   ipcMain.handle('app:install-update', () => {
-    if (!updateDownloadedInfo) return { ok: false, reason: 'No downloaded update.' };
+    if (!updateDownloadedInfo) return { ok: false, reason: mt('errors.noDownloadedUpdate', 'No downloaded update.') };
     setImmediate(() => autoUpdater.quitAndInstall(false, true));
     return { ok: true };
   });

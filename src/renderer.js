@@ -15,11 +15,23 @@ const appState = {
     currentMode: 'api',
     wrapperUrl: 'https://chat.deepseek.com/',
     lastUpdateCheckAt: null,
-    legacyModelBannerDismissed: false
+    legacyModelBannerDismissed: false,
+    language: 'en'
   }
 };
 
 const LEGACY_MODEL_IDS = new Set(['deepseek-chat', 'deepseek-reasoner']);
+const GENERATED_CHAT_TITLES = new Set([
+  'New conversation',
+  'Nouvelle conversation',
+  'Untitled conversation',
+  'Conversation sans titre',
+  'Conversation'
+]);
+const UI_LOCALES = {
+  en: 'en-US',
+  fr: 'fr-FR'
+};
 
 const runtime = {
   modelsByProfile: {},
@@ -30,6 +42,7 @@ const runtime = {
   currentStreaming: new Map(),
   isMaximized: false,
   updateStatus: 'idle',
+  updateProgressPercent: 0,
   toastTimer: null,
   appMeta: null,
   wrapperInitialized: false
@@ -60,6 +73,7 @@ const el = {
   offlineBanner: document.getElementById('offlineBanner'),
   legacyModelBanner: document.getElementById('legacyModelBanner'),
   dismissLegacyModelBannerBtn: document.getElementById('dismissLegacyModelBannerBtn'),
+  languageSelect: document.getElementById('languageSelect'),
   toastBanner: document.getElementById('toastBanner'),
   chatTitleInput: document.getElementById('chatTitleInput'),
   activeProfileSelect: document.getElementById('activeProfileSelect'),
@@ -118,7 +132,60 @@ const el = {
   wrapperOpenExternalBtn: document.getElementById('wrapperOpenExternalBtn')
 };
 
-const starterPrompt = 'Structure the task, surface the constraints, and produce a clean execution plan with concise next actions.';
+function t(key, fallback) {
+  return window.i18n ? window.i18n.t(key, fallback) : fallback;
+}
+
+function formatTemplate(template, vars = {}) {
+  return String(template || '').replace(/\{(\w+)\}/g, (_match, key) => String(vars[key] ?? ''));
+}
+
+function tFormat(key, fallback, vars = {}) {
+  return formatTemplate(t(key, fallback), vars);
+}
+
+function currentLocale() {
+  return UI_LOCALES[appState.ui.language] || UI_LOCALES.en;
+}
+
+function localizedDefaultChatTitle() {
+  return t('chat.defaultTitle', 'New conversation');
+}
+
+function localizedUntitledChatTitle() {
+  return t('chat.untitledTitle', 'Untitled conversation');
+}
+
+function localizedGenericChatTitle() {
+  return t('chat.genericTitle', 'Conversation');
+}
+
+function displayChatTitle(title) {
+  if (!title) return localizedUntitledChatTitle();
+  if (title === 'New conversation' || title === 'Nouvelle conversation') return localizedDefaultChatTitle();
+  if (title === 'Untitled conversation' || title === 'Conversation sans titre') return localizedUntitledChatTitle();
+  if (title === 'Conversation') return localizedGenericChatTitle();
+  return title;
+}
+
+function isGeneratedChatTitle(title) {
+  return GENERATED_CHAT_TITLES.has(title);
+}
+
+function localizedMessageRole(role) {
+  return t(`message.role.${role}`, role || 'message');
+}
+
+function localizedMessageStatus(status) {
+  return t(`message.status.${status}`, status || 'status');
+}
+
+function starterPromptText() {
+  return t(
+    'chat.starterPromptText',
+    'Structure the task, surface the constraints, and produce a clean execution plan with concise next actions.'
+  );
+}
 
 function uid(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -141,7 +208,7 @@ function escapeHtml(value) {
 
 function formatDate(value) {
   try {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleString(currentLocale());
   } catch {
     return value || '';
   }
@@ -204,7 +271,7 @@ function createChat(profileId) {
   const now = new Date().toISOString();
   return {
     id: uid('chat'),
-    title: 'New conversation',
+    title: localizedDefaultChatTitle(),
     profileId: profile?.id || appState.activeProfileId,
     model: defaults.model,
     thinkingType: defaults.thinkingType,
@@ -238,13 +305,13 @@ function serializeStateForSave() {
 async function persistState(showSaved = false) {
   const saved = await window.desktopAPI.saveState(serializeStateForSave());
   hydrate(saved);
-  if (showSaved) showToast('State saved.');
+  if (showSaved) showToast(t('toast.stateSaved', 'State saved.'));
 }
 
 function schedulePersist() {
   clearTimeout(runtime.draftSaveTimer);
   runtime.draftSaveTimer = setTimeout(() => {
-    persistState(false).catch((error) => showToast(error.message || 'Save failed', true));
+    persistState(false).catch((error) => showToast(error.message || t('toast.saveFailed', 'Save failed.'), true));
   }, 260);
 }
 
@@ -294,13 +361,23 @@ function hydrate(state) {
     ? appState.ui.wrapperUrl
     : 'https://chat.deepseek.com/';
 
+  if (window.i18n) {
+    const lang = window.i18n.LANGS.includes(appState.ui.language) ? appState.ui.language : window.i18n.DEFAULT_LANG;
+    appState.ui.language = lang;
+    window.i18n.setLanguage(lang, { force: true });
+  }
+
   renderAll();
 }
 
 function renderAll() {
   el.body.dataset.theme = appState.ui.theme;
+  el.body.dataset.lang = appState.ui.language;
   el.appShell.classList.toggle('sidebar-collapsed', appState.ui.sidebarCollapsed);
   el.apiWorkspace.classList.toggle('collapsed-right', appState.ui.rightPanelCollapsed);
+  if (el.languageSelect && el.languageSelect.value !== appState.ui.language) {
+    el.languageSelect.value = appState.ui.language;
+  }
   renderMode();
   renderConversations();
   renderTabs();
@@ -358,20 +435,29 @@ function initializeWrapper() {
   }
 
   el.wrapperWebview.addEventListener('did-start-loading', () => {
-    updateWrapperStatus('Loading', 'DeepSeek official is loading in an isolated session.');
+    updateWrapperStatus(
+      t('wrapper.loadingStatus', 'Loading'),
+      t('wrapper.loadingDetail', 'Official DeepSeek is loading in an isolated session.')
+    );
   });
 
   el.wrapperWebview.addEventListener('did-stop-loading', () => {
-    updateWrapperStatus('Ready', 'Official DeepSeek is loaded. The wrapper session stays separate from your API profiles.');
+    updateWrapperStatus(
+      t('wrapper.readyStatus', 'Ready'),
+      t('wrapper.readyDetail', 'Official DeepSeek is loaded. The wrapper session stays separate from your API profiles.')
+    );
   });
 
   el.wrapperWebview.addEventListener('did-fail-load', (event) => {
-    updateWrapperStatus('Load error', event.errorDescription || 'The official wrapper failed to load.');
+    updateWrapperStatus(
+      t('wrapper.loadErrorStatus', 'Load error'),
+      event.errorDescription || t('wrapper.loadErrorDetail', 'The official wrapper failed to load.')
+    );
   });
 
   el.wrapperWebview.addEventListener('page-title-updated', (event) => {
     if (event.title) {
-      updateWrapperStatus('Ready', event.title);
+      updateWrapperStatus(t('wrapper.readyStatus', 'Ready'), event.title);
     }
   });
 
@@ -398,9 +484,10 @@ function renderConversations() {
 
   el.conversationList.innerHTML = filtered.map((chat) => {
     const last = chat.messages[chat.messages.length - 1];
-    const preview = last?.content?.slice(0, 80) || 'Empty';
-    const initial = (chat.title || '?').trim().charAt(0).toUpperCase() || '?';
-    const safeTitle = escapeHtml(chat.title);
+    const preview = last?.content?.slice(0, 80) || t('chat.emptyPreview', 'Empty');
+    const displayTitle = displayChatTitle(chat.title);
+    const initial = (displayTitle || '?').trim().charAt(0).toUpperCase() || '?';
+    const safeTitle = escapeHtml(displayTitle);
     return `
       <div class="conversation-card ${chat.id === appState.activeChatId ? 'active' : ''}" data-chat-id="${chat.id}" role="button" tabindex="0" title="${safeTitle}">
         <span class="conversation-avatar" aria-hidden="true">${escapeHtml(initial)}</span>
@@ -413,14 +500,14 @@ function renderConversations() {
           </div>
         </div>
         <div class="conversation-actions">
-          <button class="conversation-action" data-rename-chat="${chat.id}" title="Renommer" aria-label="Renommer la conversation">
+          <button class="conversation-action" data-rename-chat="${chat.id}" title="${escapeHtml(t('conversations.rename', 'Rename conversation'))}" aria-label="${escapeHtml(t('conversations.rename', 'Rename conversation'))}">
             <span data-icon="edit" class="icon-sm"></span>
           </button>
-          <button class="conversation-action conversation-delete" data-delete-chat="${chat.id}" title="Supprimer" aria-label="Supprimer la conversation">×</button>
+          <button class="conversation-action conversation-delete" data-delete-chat="${chat.id}" title="${escapeHtml(t('conversations.delete', 'Delete conversation'))}" aria-label="${escapeHtml(t('conversations.delete', 'Delete conversation'))}">×</button>
         </div>
       </div>
     `;
-  }).join('') || '<div class="empty-state">No conversation matches your search.</div>';
+  }).join('') || `<div class="empty-state">${escapeHtml(t('conversations.searchEmpty', 'No conversation matches your search.'))}</div>`;
   if (window.Icons) window.Icons.render(el.conversationList);
 }
 
@@ -431,11 +518,11 @@ function renderTabs() {
 
   el.tabsBar.innerHTML = tabs.map((chat) => `
     <div class="tab ${chat.id === appState.activeChatId ? 'active' : ''}" data-tab-id="${chat.id}" role="button" tabindex="0">
-      <span>${escapeHtml(chat.title)}</span>
+      <span>${escapeHtml(displayChatTitle(chat.title))}</span>
       <button class="tab-close" data-close-tab="${chat.id}">×</button>
     </div>
   `).join('') + `
-    <button class="tab-new" data-new-tab title="Nouvelle conversation" aria-label="Nouvelle conversation">
+    <button class="tab-new" data-new-tab title="${escapeHtml(t('conversations.newTab', 'New conversation'))}" aria-label="${escapeHtml(t('conversations.newTab', 'New conversation'))}">
       <span data-icon="plus" class="icon-sm"></span>
     </button>
   `;
@@ -450,17 +537,19 @@ function modelsForChat(chat) {
 
 function renderMessage(message, chat) {
   const canRetry = (message.status === 'pending' || message.status === 'error') && message.role === 'user' && chat.messages[chat.messages.length - 1]?.id === message.id;
+  const roleLabel = localizedMessageRole(message.role);
+  const statusLabel = message.status !== 'sent' ? ` - ${localizedMessageStatus(message.status)}` : '';
   return `
     <article class="message ${message.role} ${message.status === 'error' ? 'error' : ''} ${message.status === 'pending' ? 'pending' : ''}" data-message-id="${message.id}">
       <div class="topline">
-        <span>${escapeHtml(message.role)}${message.status !== 'sent' ? ` • ${escapeHtml(message.status)}` : ''}</span>
+        <span>${escapeHtml(roleLabel)}${escapeHtml(statusLabel)}</span>
         <span>${escapeHtml(formatDate(message.createdAt))}</span>
       </div>
       <div class="content" data-message-content>${escapeHtml(message.content || '')}</div>
       ${message.reasoningContent ? `<div class="reasoning" data-message-reasoning>${escapeHtml(message.reasoningContent)}</div>` : ''}
       ${message.attachments?.length ? `<div class="attachment-list">${message.attachments.map((att) => `<span class="attachment-chip">${escapeHtml(att.name)}</span>`).join('')}</div>` : ''}
       ${message.error ? `<small>${escapeHtml(message.error)}</small>` : ''}
-      ${canRetry ? `<div><button class="ghost small" data-retry-id="${message.id}">Retry send</button></div>` : ''}
+      ${canRetry ? `<div><button class="ghost small" data-retry-id="${message.id}">${escapeHtml(t('chat.retrySend', 'Retry send'))}</button></div>` : ''}
     </article>
   `;
 }
@@ -472,7 +561,7 @@ function renderActiveChat(options = {}) {
   const previousScrollTop = el.messageList.scrollTop;
   const shouldStickToBottom = isNearBottom(el.messageList);
 
-  el.chatTitleInput.value = chat.title;
+  el.chatTitleInput.value = displayChatTitle(chat.title);
   el.composer.value = chat.draft || '';
   el.systemPromptInput.value = chat.systemPrompt || '';
   el.thinkingSelect.value = chat.thinkingType || 'auto';
@@ -492,7 +581,7 @@ function renderActiveChat(options = {}) {
 
   el.messageList.innerHTML = chat.messages.length
     ? chat.messages.map((message) => renderMessage(message, chat)).join('')
-    : '<div class="empty-state">No messages yet. Local history, imports, and attachments are ready.</div>';
+    : `<div class="empty-state">${escapeHtml(t('chat.emptyState', 'No messages yet. Local history, imports, and attachments are ready.'))}</div>`;
   if (scrollMode === 'preserve') {
     el.messageList.scrollTop = previousScrollTop;
   } else if (scrollMode === 'stick') {
@@ -506,7 +595,9 @@ function renderActiveChat(options = {}) {
   }
 
   renderPendingAttachments();
-  el.draftInfo.textContent = chat.updatedAt ? `Local state updated ${formatDate(chat.updatedAt)}` : 'Draft saved locally';
+  el.draftInfo.textContent = chat.updatedAt
+    ? tFormat('chat.localStateUpdated', 'Local state updated {date}', { date: formatDate(chat.updatedAt) })
+    : t('chat.draftSavedLocal', 'Draft saved locally');
 }
 
 function syncStreamingMessage(chatId, messageId) {
@@ -570,8 +661,8 @@ function renderProfiles() {
   el.profileApiKeyStatus.classList.toggle('api-key-status-ok', hasKey);
   el.profileApiKeyStatus.classList.toggle('api-key-status-warn', !hasKey);
   el.profileApiKeyStatus.innerHTML = hasKey
-    ? '<span data-icon="circle-check" class="icon-sm"></span>Clé enregistrée — laisser vide pour la conserver.'
-    : '<span data-icon="circle-alert" class="icon-sm"></span>Aucune clé configurée pour ce profil.';
+    ? `<span data-icon="circle-check" class="icon-sm"></span>${escapeHtml(t('settings.apiKeySaved', 'API key saved. Leave the field empty to keep it.'))}`
+    : `<span data-icon="circle-alert" class="icon-sm"></span>${escapeHtml(t('settings.apiKeyMissingProfile', 'No API key configured for this profile.'))}`;
   if (window.Icons) window.Icons.render(el.profileApiKeyStatus);
   el.profileDefaultModelInput.value = selectedProfile.defaultModel || 'deepseek-chat';
   el.profileThinkingSelect.value = selectedProfile.thinkingType || 'auto';
@@ -593,15 +684,15 @@ function renderDesktopSettings() {
 function renderMeta() {
   const rows = [];
   if (runtime.appMeta) {
-    rows.push(['Version', runtime.appMeta.version]);
-    rows.push(['Packaged', runtime.appMeta.isPackaged ? 'Oui' : 'Non']);
-    rows.push(['Plateforme', runtime.appMeta.platform]);
+    rows.push([t('meta.version', 'Version'), runtime.appMeta.version]);
+    rows.push([t('meta.packaged', 'Packaged'), runtime.appMeta.isPackaged ? t('meta.yes', 'Yes') : t('meta.no', 'No')]);
+    rows.push([t('meta.platform', 'Platform'), runtime.appMeta.platform]);
   }
   if (appState.ui.lastUpdateCheckAt) {
-    rows.push(['Dernière vérif MAJ', formatDate(appState.ui.lastUpdateCheckAt)]);
+    rows.push([t('meta.lastUpdateCheck', 'Last update check'), formatDate(appState.ui.lastUpdateCheckAt)]);
   }
-  rows.push(['Profils', appState.profiles.length]);
-  rows.push(['Conversations', appState.chats.length]);
+  rows.push([t('meta.profiles', 'Profiles'), appState.profiles.length]);
+  rows.push([t('meta.conversations', 'Conversations'), appState.chats.length]);
   el.metaBox.innerHTML = rows.map(([k, v]) =>
     `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`
   ).join('');
@@ -609,18 +700,28 @@ function renderMeta() {
 
 function renderOnlineState() {
   const online = navigator.onLine;
-  el.onlinePill.textContent = online ? 'Online' : 'Offline';
+  el.onlinePill.textContent = online ? t('titlebar.online', 'Online') : t('titlebar.offline', 'Offline');
   el.onlinePill.className = `pill ${online ? 'online' : 'warning'}`;
   el.offlineBanner.classList.toggle('hidden', online);
-  el.updatePill.textContent = runtime.updateStatus;
-  el.updatePill.className = `pill ${runtime.updateStatus === 'error' ? 'error' : runtime.updateStatus === 'available' || runtime.updateStatus === 'downloaded' ? 'online' : ''}`;
+  const statusKey = {
+    idle: 'titlebar.updateIdle',
+    checking: 'titlebar.updateChecking',
+    available: 'titlebar.updateAvailable',
+    downloaded: 'titlebar.updateDownloaded',
+    error: 'titlebar.updateError',
+    disabled: 'titlebar.updateDisabled'
+  }[runtime.updateStatus];
+  el.updatePill.textContent = runtime.updateStatus === 'downloading'
+    ? tFormat('titlebar.updateDownloading', 'Downloading {percent}%', { percent: runtime.updateProgressPercent })
+    : (statusKey ? t(statusKey, runtime.updateStatus) : runtime.updateStatus);
+  el.updatePill.className = `pill ${runtime.updateStatus === 'error' ? 'error' : runtime.updateStatus === 'available' || runtime.updateStatus === 'downloaded' ? 'online' : runtime.updateStatus === 'disabled' ? 'warning' : ''}`;
   el.maximizeBtn.textContent = runtime.isMaximized ? '❐' : '▢';
 }
 
 function saveChatEditorState() {
   const chat = activeChat();
   if (!chat) return;
-  chat.title = el.chatTitleInput.value.trim() || 'Untitled conversation';
+  chat.title = el.chatTitleInput.value.trim() || localizedUntitledChatTitle();
   chat.draft = el.composer.value.slice(0, 12000);
   chat.systemPrompt = el.systemPromptInput.value.slice(0, 16000);
   chat.thinkingType = el.thinkingSelect.value;
@@ -673,10 +774,13 @@ async function renameChat(chatId) {
   if (!chatId) return;
   const chat = appState.chats.find((item) => item.id === chatId);
   if (!chat) return;
-  const next = window.prompt('Nouveau titre de la conversation :', chat.title);
+  const next = window.prompt(
+    t('prompts.renameConversation', 'New conversation title:'),
+    displayChatTitle(chat.title)
+  );
   if (next === null) return;
   const trimmed = next.trim();
-  if (!trimmed || trimmed === chat.title) return;
+  if (!trimmed || trimmed === chat.title || trimmed === displayChatTitle(chat.title)) return;
   chat.title = trimmed.slice(0, 120);
   markUpdated(chat);
   renderAll();
@@ -687,7 +791,7 @@ async function deleteChat(chatId) {
   if (!chatId) return;
   const chat = appState.chats.find((item) => item.id === chatId);
   if (!chat) return;
-  if (!window.confirm(`Supprimer la conversation "${chat.title}" ?`)) return;
+  if (!window.confirm(tFormat('confirm.deleteConversation', 'Delete the conversation "{title}"?', { title: displayChatTitle(chat.title) }))) return;
   appState.chats = appState.chats.filter((item) => item.id !== chatId);
   appState.openChatIds = appState.openChatIds.filter((id) => id !== chatId);
   if (appState.activeChatId === chatId) {
@@ -705,7 +809,7 @@ async function deleteChat(chatId) {
 
 async function deleteAllChats() {
   if (!appState.chats.length) return;
-  if (!window.confirm(`Supprimer toutes les conversations (${appState.chats.length}) ? Action irréversible.`)) return;
+  if (!window.confirm(tFormat('confirm.deleteAllConversations', 'Delete all conversations ({count})? This action cannot be undone.', { count: appState.chats.length }))) return;
   const fresh = createChat(appState.activeProfileId);
   appState.chats = [fresh];
   appState.openChatIds = [fresh.id];
@@ -717,7 +821,7 @@ async function deleteAllChats() {
 async function saveProfileFromForm() {
   const current = editorProfile();
   if (!current) return;
-  current.name = el.profileNameInput.value.trim() || 'Profile';
+  current.name = el.profileNameInput.value.trim() || t('settings.profile', 'Profile');
   current.baseUrl = el.profileBaseUrlInput.value.trim() || 'https://api.deepseek.com';
   current.defaultModel = el.profileDefaultModelInput.value.trim() || 'deepseek-chat';
   current.thinkingType = el.profileThinkingSelect.value;
@@ -742,16 +846,16 @@ async function saveProfileFromForm() {
 
 async function deleteEditorProfile() {
   if (appState.profiles.length === 1) {
-    showToast('Au moins un profil est requis.', true);
+    showToast(t('profile.minimumOneRequired', 'At least one profile is required.'), true);
     return;
   }
   const id = el.profileSelect.value || runtime.selectedProfileEditorId;
   const target = appState.profiles.find((profile) => profile.id === id);
   if (!target) {
-    showToast('Aucun profil sélectionné.', true);
+    showToast(t('profile.noneSelected', 'No profile selected.'), true);
     return;
   }
-  const confirmed = window.confirm(`Supprimer le profil « ${target.name} » ? Cette action est définitive.`);
+  const confirmed = window.confirm(tFormat('confirm.deleteProfile', 'Delete the profile "{name}"? This action cannot be undone.', { name: target.name }));
   if (!confirmed) return;
   appState.profiles = appState.profiles.filter((profile) => profile.id !== id);
   const fallback = appState.profiles[0];
@@ -788,7 +892,7 @@ async function sendMessage(retryMessageId = null) {
   const chat = activeChat();
   const profile = appState.profiles.find((item) => item.id === chat.profileId) || activeProfile();
   if (!profile?.hasApiKey) {
-    showToast('Store an API key in the selected profile first.', true);
+    showToast(t('toast.apiKeyRequired', 'Store an API key in the selected profile first.'), true);
     return;
   }
 
@@ -829,7 +933,7 @@ async function sendMessage(retryMessageId = null) {
     markUpdated(chat);
     renderActiveChat({ scrollMode: 'stick' });
     schedulePersist();
-    showToast('Offline. Message stored locally as pending.', true);
+    showToast(t('toast.offlinePending', 'Offline. Message stored locally as pending.'), true);
     return;
   }
 
@@ -889,17 +993,21 @@ async function sendMessage(retryMessageId = null) {
     renderActiveChat({ scrollMode: 'stick' });
     renderConversations();
     schedulePersist();
-    showToast(result.usage ? `Reply received • total tokens ${result.usage.total_tokens ?? '-'}` : 'Reply received.');
+    showToast(
+      result.usage
+        ? tFormat('toast.replyReceivedWithTokens', 'Reply received - total tokens {count}', { count: result.usage.total_tokens ?? '-' })
+        : t('toast.replyReceived', 'Reply received.')
+    );
   } catch (error) {
     if (chat.stream) {
       chat.messages = chat.messages.filter((message) => message.id !== assistantMessage.id);
     }
     userMessage.status = 'error';
-    userMessage.error = error.message || 'Request failed';
+    userMessage.error = error.message || t('toast.sendFailed', 'Send failed.');
     markUpdated(chat);
     renderActiveChat({ scrollMode: 'stick' });
     schedulePersist();
-    showToast(error.message || 'Send failed.', true);
+    showToast(error.message || t('toast.sendFailed', 'Send failed.'), true);
   } finally {
     runtime.currentStreaming.delete(requestId);
     el.sendBtn.disabled = false;
@@ -911,24 +1019,24 @@ async function refreshModels() {
   if (!chat) return;
   const result = await window.desktopAPI.listModels({ profileId: chat.profileId });
   if (!result.ok) {
-    showToast(result.message || 'Model refresh failed', true);
+    showToast(result.message || t('toast.modelRefreshFailed', 'Model refresh failed'), true);
     return;
   }
   runtime.modelsByProfile[chat.profileId] = result.models;
   renderActiveChat();
-  showToast('Model list refreshed.');
+  showToast(t('toast.modelListRefreshed', 'Model list refreshed.'));
 }
 
 async function exportCurrentChat() {
   const chat = activeChat();
   if (!chat) return;
   const result = await window.desktopAPI.exportChats({ chats: [chat] });
-  if (!result.canceled) showToast('Conversation exported.');
+  if (!result.canceled) showToast(t('toast.conversationExported', 'Conversation exported.'));
 }
 
 async function exportAllChats() {
   const result = await window.desktopAPI.exportChats({ chats: appState.chats });
-  if (!result.canceled) showToast('All conversations exported.');
+  if (!result.canceled) showToast(t('toast.allConversationsExported', 'All conversations exported.'));
 }
 
 async function importChats() {
@@ -953,10 +1061,10 @@ function wireMessageActions(event) {
 }
 
 function updateChatTitleFromMessages(chat) {
-  if (chat.title && chat.title !== 'New conversation' && chat.title !== 'Untitled conversation') return;
+  if (chat.title && !isGeneratedChatTitle(chat.title)) return;
   const firstUser = chat.messages.find((message) => message.role === 'user');
   if (firstUser) {
-    chat.title = firstUser.content.slice(0, 48) || 'Conversation';
+    chat.title = firstUser.content.slice(0, 48) || localizedGenericChatTitle();
   }
 }
 
@@ -992,6 +1100,16 @@ function bindEvents() {
     });
   }
 
+  if (el.languageSelect) {
+    el.languageSelect.addEventListener('change', async () => {
+      const lang = el.languageSelect.value;
+      if (!window.i18n || !window.i18n.LANGS.includes(lang)) return;
+      appState.ui.language = lang;
+      window.i18n.setLanguage(lang);
+      await persistState();
+    });
+  }
+
   el.chatSearch.addEventListener('input', (event) => {
     runtime.chatSearch = event.target.value;
     renderConversations();
@@ -1002,7 +1120,7 @@ function bindEvents() {
   el.importChatsBtn.addEventListener('click', importChats);
   el.checkUpdatesBtn.addEventListener('click', async () => {
     const result = await window.desktopAPI.checkUpdates();
-    if (!result.ok) showToast(result.reason || 'Update check unavailable.', true);
+    if (!result.ok) showToast(result.reason || t('toast.updateCheckUnavailable', 'Update check unavailable.'), true);
   });
   el.openLogsBtn.addEventListener('click', () => window.desktopAPI.openLogsFolder());
   if (el.clearAllChatsBtn) el.clearAllChatsBtn.addEventListener('click', deleteAllChats);
@@ -1118,6 +1236,7 @@ function bindEvents() {
   });
 
   el.starterBtn.addEventListener('click', () => {
+    const starterPrompt = starterPromptText();
     el.composer.value = starterPrompt;
     const chat = activeChat();
     if (chat) {
@@ -1149,7 +1268,7 @@ function bindEvents() {
   el.newProfileBtn.addEventListener('click', () => {
     const profile = {
       id: uid('profile'),
-      name: `Profile ${appState.profiles.length + 1}`,
+      name: tFormat('profile.generatedName', 'Profile {index}', { index: appState.profiles.length + 1 }),
       baseUrl: 'https://api.deepseek.com',
       defaultModel: 'deepseek-chat',
       thinkingType: 'auto',
@@ -1204,11 +1323,11 @@ function bindEvents() {
 
   el.downloadUpdateBtn.addEventListener('click', async () => {
     const result = await window.desktopAPI.downloadUpdate();
-    if (!result.ok) showToast(result.reason || 'Update download unavailable.', true);
+    if (!result.ok) showToast(result.reason || t('toast.updateDownloadUnavailable', 'Update download unavailable.'), true);
   });
   el.installUpdateBtn.addEventListener('click', async () => {
     const result = await window.desktopAPI.installUpdate();
-    if (!result.ok) showToast(result.reason || 'No downloaded update.', true);
+    if (!result.ok) showToast(result.reason || t('toast.noDownloadedUpdate', 'No downloaded update.'), true);
   });
 
   el.minimizeBtn.addEventListener('click', () => window.desktopAPI.windowAction('minimize'));
@@ -1217,6 +1336,10 @@ function bindEvents() {
 
   window.addEventListener('online', renderOnlineState);
   window.addEventListener('offline', renderOnlineState);
+
+  if (window.i18n) {
+    window.i18n.onChange(() => renderAll());
+  }
   window.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
       event.preventDefault();
@@ -1280,13 +1403,15 @@ function subscribeRuntimeEvents() {
     }
     if (payload.type === 'update-status') {
       runtime.updateStatus = payload.status;
+      runtime.updateProgressPercent = 0;
       renderOnlineState();
-      if (payload.status === 'available') showToast(`Update ${payload.info?.version || ''} available.`);
-      if (payload.status === 'downloaded') showToast('Update downloaded. Install when ready.');
-      if (payload.status === 'error') showToast(payload.message || 'Update error.', true);
+      if (payload.status === 'available') showToast(tFormat('toast.updateAvailable', 'Update {version} available.', { version: payload.info?.version || '' }));
+      if (payload.status === 'downloaded') showToast(t('toast.updateDownloaded', 'Update downloaded. Install when ready.'));
+      if (payload.status === 'error') showToast(payload.message || t('toast.updateError', 'Update error.'), true);
     }
     if (payload.type === 'update-progress') {
-      runtime.updateStatus = `downloading ${Math.round(payload.progress?.percent || 0)}%`;
+      runtime.updateStatus = 'downloading';
+      runtime.updateProgressPercent = Math.round(payload.progress?.percent || 0);
       renderOnlineState();
     }
   });
@@ -1304,5 +1429,5 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  showToast(error.message || 'Bootstrap failed', true);
+  showToast(error.message || t('toast.bootstrapFailed', 'Bootstrap failed'), true);
 });
