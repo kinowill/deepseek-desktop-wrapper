@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - DeepSeek V4 awareness
 
 ### DeepSeek V4 awareness
 - model picker now surfaces `deepseek-v4-pro` and `deepseek-v4-flash` (released 2026-04-24)
