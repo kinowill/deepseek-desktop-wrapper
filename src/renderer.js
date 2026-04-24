@@ -14,9 +14,12 @@ const appState = {
     rightPanelCollapsed: false,
     currentMode: 'api',
     wrapperUrl: 'https://chat.deepseek.com/',
-    lastUpdateCheckAt: null
+    lastUpdateCheckAt: null,
+    legacyModelBannerDismissed: false
   }
 };
+
+const LEGACY_MODEL_IDS = new Set(['deepseek-chat', 'deepseek-reasoner']);
 
 const runtime = {
   modelsByProfile: {},
@@ -55,6 +58,8 @@ const el = {
   apiKeyBannerBtn: document.getElementById('apiKeyBannerBtn'),
   tabsBar: document.getElementById('tabsBar'),
   offlineBanner: document.getElementById('offlineBanner'),
+  legacyModelBanner: document.getElementById('legacyModelBanner'),
+  dismissLegacyModelBannerBtn: document.getElementById('dismissLegacyModelBannerBtn'),
   toastBanner: document.getElementById('toastBanner'),
   chatTitleInput: document.getElementById('chatTitleInput'),
   activeProfileSelect: document.getElementById('activeProfileSelect'),
@@ -305,6 +310,7 @@ function renderAll() {
   renderMeta();
   renderOnlineState();
   renderApiKeyBanner();
+  renderLegacyModelBanner();
 }
 
 function renderApiKeyBanner() {
@@ -312,6 +318,17 @@ function renderApiKeyBanner() {
   const missing = !appState.profiles.some((profile) => profile.hasApiKey);
   el.apiKeyBanner.classList.toggle('hidden', !missing);
   el.apiKeyBanner.classList.toggle('flex', missing);
+}
+
+function renderLegacyModelBanner() {
+  if (!el.legacyModelBanner) return;
+  const chat = activeChat();
+  const show = chat
+    && LEGACY_MODEL_IDS.has(chat.model)
+    && !appState.ui.legacyModelBannerDismissed
+    && appState.ui.currentMode === 'api';
+  el.legacyModelBanner.classList.toggle('hidden', !show);
+  el.legacyModelBanner.classList.toggle('flex', show);
 }
 
 function renderMode() {
@@ -427,7 +444,7 @@ function renderTabs() {
 
 function modelsForChat(chat) {
   const profileModels = runtime.modelsByProfile[chat.profileId] || [];
-  const merged = [...new Set(['deepseek-chat', 'deepseek-reasoner', chat.model, ...profileModels.map((item) => item.id || item)])].filter(Boolean);
+  const merged = [...new Set(['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner', chat.model, ...profileModels.map((item) => item.id || item)])].filter(Boolean);
   return merged;
 }
 
@@ -617,6 +634,7 @@ function saveChatEditorState() {
   schedulePersist();
   renderConversations();
   renderTabs();
+  renderLegacyModelBanner();
 }
 
 function applyProfileDefaultsToChat(chat, profile) {
@@ -965,6 +983,14 @@ function bindEvents() {
     appState.ui.rightPanelCollapsed = !appState.ui.rightPanelCollapsed;
     await persistState();
   });
+
+  if (el.dismissLegacyModelBannerBtn) {
+    el.dismissLegacyModelBannerBtn.addEventListener('click', async () => {
+      appState.ui.legacyModelBannerDismissed = true;
+      renderLegacyModelBanner();
+      await persistState();
+    });
+  }
 
   el.chatSearch.addEventListener('input', (event) => {
     runtime.chatSearch = event.target.value;

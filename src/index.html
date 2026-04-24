@@ -134,6 +134,17 @@
               <div class="hidden rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning" id="offlineBanner">
                 Mode hors-ligne. Conversations disponibles localement. Les envois échoués restent en attente.
               </div>
+              <div class="hidden items-start justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning" id="legacyModelBanner">
+                <span class="flex items-start gap-2">
+                  <span data-icon="circle-alert" class="icon-sm mt-0.5"></span>
+                  <span>
+                    Ce modèle est un alias legacy qui sera <strong>déprécié le 24 juillet 2026</strong>. Il route déjà vers <code class="font-mono">deepseek-v4-flash</code>. Pensez à passer à <code class="font-mono">deepseek-v4-flash</code> ou <code class="font-mono">deepseek-v4-pro</code>.
+                  </span>
+                </span>
+                <button class="btn-soft !py-1 text-xs whitespace-nowrap" id="dismissLegacyModelBannerBtn" type="button">
+                  Ne plus afficher
+                </button>
+              </div>
               <div class="hidden rounded-lg border border-line/70 bg-white/[0.04] px-3 py-2 text-sm text-ink" id="toastBanner"></div>
             </div>
 
@@ -276,7 +287,7 @@
                       </label>
                       <label class="flex flex-col gap-1.5">
                         <span class="text-xs font-medium text-ink-muted">Modèle par défaut</span>
-                        <input id="profileDefaultModelInput" class="field font-mono text-xs" type="text" placeholder="deepseek-chat" />
+                        <input id="profileDefaultModelInput" class="field font-mono text-xs" type="text" placeholder="deepseek-v4-flash" />
                       </label>
                       <div class="grid grid-cols-2 gap-2">
                         <label class="flex flex-col gap-1.5">

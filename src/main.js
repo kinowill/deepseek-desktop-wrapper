@@ -156,7 +156,8 @@ function defaultState() {
       rightPanelCollapsed: false,
       currentMode: 'api',
       wrapperUrl: WRAPPER_HOME_URL,
-      lastUpdateCheckAt: null
+      lastUpdateCheckAt: null,
+      legacyModelBannerDismissed: false
     }
   };
 }
@@ -366,7 +367,8 @@ function sanitizeIncomingState(payload = {}, current = readState()) {
       rightPanelCollapsed: Boolean(payload.ui?.rightPanelCollapsed),
       currentMode: ALLOWED_MODES.has(payload.ui?.currentMode) ? payload.ui.currentMode : current.ui.currentMode,
       wrapperUrl: sanitizeWrapperUrl(payload.ui?.wrapperUrl || current.ui.wrapperUrl),
-      lastUpdateCheckAt: payload.ui?.lastUpdateCheckAt || current.ui.lastUpdateCheckAt || null
+      lastUpdateCheckAt: payload.ui?.lastUpdateCheckAt || current.ui.lastUpdateCheckAt || null,
+      legacyModelBannerDismissed: Boolean(payload.ui?.legacyModelBannerDismissed ?? current.ui.legacyModelBannerDismissed)
     }
   };
 }
