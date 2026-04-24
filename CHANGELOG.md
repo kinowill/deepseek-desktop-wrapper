@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### DeepSeek V4 awareness
+- model picker now surfaces `deepseek-v4-pro` and `deepseek-v4-flash` (released 2026-04-24)
+- contextual dismissible banner shown in API mode whenever the active chat uses a legacy alias (`deepseek-chat` or `deepseek-reasoner`), warning about the 2026-07-24 deprecation and pointing to the new V4 IDs
+- "Ne plus afficher" action persists the dismiss state per user (stored in `ui.legacyModelBannerDismissed` in `app-state.json`)
+- default model input placeholder updated to `deepseek-v4-flash` (stored defaults in existing profiles are untouched)
+
 ## 1.0.0 - First public V1 release
 
 Hybrid wrapper + API desktop release line aligned for a proper GitHub setup.
